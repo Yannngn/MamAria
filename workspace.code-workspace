@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "..\\carvana-image-masking-challenge\\data"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}
