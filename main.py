@@ -16,11 +16,11 @@ from utils import (
 )
 
 # Hyperparameters etc.
-LEARNING_RATE = 3e-4
+LEARNING_RATE = 1e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 24
-NUM_EPOCHS = 1
-NUM_WORKERS = 8
+BATCH_SIZE = 25
+NUM_EPOCHS = 1000
+NUM_WORKERS = 12
 IMAGE_HEIGHT = 256  # 256 originally
 IMAGE_WIDTH = 98  # 98 originally
 PIN_MEMORY = True
@@ -38,10 +38,12 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
     loop = tqdm(loader)
 
     for batch_idx, (data, targets) in enumerate(loop):
-        print("target shape", targets.shape)
+        #print("target shape", targets.shape)
         data = data.to(device=DEVICE)
-        targets = targets.float().unsqueeze(1).to(device=DEVICE)
-
+        #print(targets.numpy().shape)
+        #targets = targets.float().unsqueeze(1).to(device=DEVICE)
+        targets = targets.long().to(device=DEVICE)
+        
         # forward
         with torch.cuda.amp.autocast():
             predictions = model(data)
@@ -61,9 +63,9 @@ def main():
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             #A.Rotate(limit=35, p=1.0),
-            A.HorizontalFlip(p=0.5),
+            #A.HorizontalFlip(p=0.5),
             #A.VerticalFlip(p=0.1),
-            #A.Normalize(mean=[0.0, 0.0, 0.0],std=[1.0, 1.0, 1.0],max_pixel_value=255.0),
+            A.Normalize(mean=[0.0, 0.0, 0.0],std=[1.0, 1.0, 1.0],max_pixel_value=255.0),
             #ToTensorV2(),
         ],
     )
@@ -71,14 +73,14 @@ def main():
     val_transforms = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            #A.Normalize(mean=[0.0, 0.0, 0.0],std=[1.0, 1.0, 1.0],max_pixel_value=255.0),
+            A.Normalize(mean=[0.0, 0.0, 0.0],std=[1.0, 1.0, 1.0],max_pixel_value=255.0),
             #ToTensorV2(),
         ],
     )
 
     model = UNET(in_channels=3, classes=4).to(DEVICE)
-    #loss_fn = nn.CrossEntropyLoss()
-    loss_fn = SoftIoULoss()
+    loss_fn = nn.CrossEntropyLoss()
+    #loss_fn = SoftIoULoss()
     #loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
@@ -97,7 +99,6 @@ def main():
     if LOAD_MODEL:
         load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
 
-
     check_accuracy(val_loader, model, device=DEVICE)
     scaler = torch.cuda.amp.GradScaler()
 
@@ -107,7 +108,7 @@ def main():
         # save model
         checkpoint = {
             "state_dict": model.state_dict(),
-            "optimizer":optimizer.state_dict(),
+            "optimizer": optimizer.state_dict(),
         }
         save_checkpoint(checkpoint)
 
@@ -115,9 +116,7 @@ def main():
         check_accuracy(val_loader, model, device=DEVICE)
 
         # print some examples to a folder
-        save_predictions_as_imgs(
-            val_loader, model, folder = PREDICTIONS_DIR, device=DEVICE
-        )
+        save_predictions_as_imgs(val_loader, model, folder = PREDICTIONS_DIR, device=DEVICE)
 
         print(epoch)
 

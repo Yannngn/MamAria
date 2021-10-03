@@ -1,7 +1,7 @@
 import torch
 import torchvision
 import torch.nn as nn
-from dataset import PhantomDataset
+from dataset_v1 import PhantomDataset
 from torch.utils.data import DataLoader
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -22,7 +22,7 @@ def get_loaders(
     batch_size,
     train_transform,
     val_transform,
-    num_workers=4,
+    num_workers=12,
     pin_memory=True,
 ):
 

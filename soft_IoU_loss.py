@@ -5,7 +5,7 @@ import torch.nn.functional as F
 def to_one_hot(tensor, n_classes = 4):
     
     n, h, w = tensor.size()
-    one_hot = torch.zeros(n, n_classes, h, w).scatter_(1, tensor.view(n ,1, h, w), 1)
+    one_hot = torch.zeros(n, n_classes, h, w).scatter_(1, tensor.view(n, 1, h, w), 1)
     
     return one_hot
 
