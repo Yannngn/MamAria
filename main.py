@@ -6,7 +6,6 @@ from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
 from model import UNET
-from soft_IoU_loss import SoftIoULoss
 from utils import (
     load_checkpoint,
     save_checkpoint,
