@@ -2,7 +2,6 @@ import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torchsummary import summary
-from torch.nn.modules import loss
 from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
@@ -13,16 +12,21 @@ from utils import (
     get_loaders,
     check_accuracy,
     save_predictions_as_imgs,
+    save_validation_as_imgs,
+    get_weights,
 )
 
 # Hyperparameters etc.
 LEARNING_RATE = 1e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 25
+BATCH_SIZE = 50
 NUM_EPOCHS = 100
 NUM_WORKERS = 12
 IMAGE_HEIGHT = 256  # 256 originally
 IMAGE_WIDTH = 98  # 98 originally
+IMAGE_CHANNELS = 1
+MASK_CHANNELS = 1
+MASK_LABELS = 4
 PIN_MEMORY = True
 LOAD_MODEL = False
 PARENT_DIR = "C:/Users/Yann/Documents/GitHub/PyTorch_Seg/data/"
@@ -58,25 +62,19 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
 def main():
     train_transforms = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            #A.Normalize(mean=[0.0, 0.0, 0.0],std=[1.0, 1.0, 1.0],max_pixel_value=1.0),
-            A.Normalize(mean=0.0,std=1.0,max_pixel_value=1.0),
+            #A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
+            A.Normalize(mean=0.,std=1.,max_pixel_value=1.),
             ToTensorV2(),
         ],
     )
 
     val_transforms = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            #A.Normalize(mean=[0.0, 0.0, 0.0],std=[1.0, 1.0, 1.0],max_pixel_value=1.0),
-            A.Normalize(mean=0.0,std=1.0,max_pixel_value=1.0),
+            #A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
+            A.Normalize(mean=0.,std=1.,max_pixel_value=1.),
             ToTensorV2(),
         ],
     )
-
-    model = UNET(in_channels=1, classes=4).to(DEVICE)
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     train_loader, val_loader = get_loaders(
         TRAIN_IMG_DIR,
@@ -90,16 +88,29 @@ def main():
         PIN_MEMORY,
     )
 
+    model = UNET(in_channels = IMAGE_CHANNELS, classes= MASK_LABELS).to(DEVICE)
+    loss_fn = nn.CrossEntropyLoss(weight = get_weights(train_loader, MASK_LABELS, device=DEVICE))
+                         # Initial arguments were:      1e-5,           0.9,          True,              0.0001
+                         # Second iteration:            1e-2,           0.9,          True,              0.0001
+    optimizer =optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
+
     if LOAD_MODEL:
         load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
 
-    check_accuracy(val_loader, model, device=DEVICE)
+    check_accuracy(val_loader, model, MASK_LABELS, device=DEVICE)
+    
+    save_validation_as_imgs(val_loader, folder = PREDICTIONS_DIR, device=DEVICE)
+    
     scaler = torch.cuda.amp.GradScaler()
 
     with open("summary.txt", "w") as text_file:
-        print(summary(model, (1, 256, 98), 25, DEVICE), file = text_file)
+        print(summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE), file = text_file)
 
     for epoch in range(NUM_EPOCHS):
+        print('================================================================')
+        print('BEGINNING EPOCH', epoch, ':')
+        print('================================================================')        
+        
         train_fn(train_loader, model, optimizer, loss_fn, scaler)
 
         # save model
@@ -107,15 +118,15 @@ def main():
             "state_dict": model.state_dict(),
             "optimizer": optimizer.state_dict(),
         }
+
         save_checkpoint(checkpoint)
 
         # check accuracy
-        check_accuracy(val_loader, model, device=DEVICE)
-
-        # print some examples to a folder
-        save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device=DEVICE)
-
-        print(epoch)
+        check_accuracy(val_loader, model, MASK_LABELS, device=DEVICE)
+        
+        if epoch % 10 == 0 :
+            # print some examples to a folder
+            save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device=DEVICE)
 
 if __name__ == "__main__":
     main()

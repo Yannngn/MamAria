@@ -22,26 +22,24 @@ class PhantomDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, index):
+        # Get Image and corresponding Mask paths
         img_path = os.path.join(self.image_dir, self.images[index])
         mask_path = os.path.join(self.mask_dir, self.images[index].replace("-crop.tiff", "_mask.png"))
 
-        # image = imageio.imread(img_path)    
-        # image = np.array(Image.fromarray(image), dtype=np.float32)
+        # Convert Image and Mask to numpy
         image = np.array(Image.open(img_path), dtype=np.float32)
-        image = (image / (2 ** 14))
-        #print(np.unique(image), image.max())
         mask = np.array(Image.open(mask_path), dtype=np.float32)
-        mask[mask == 1.0] = 1/3
-        mask[mask == 2.0] = 2/3
-        mask[mask == 3.0] = 1.0
-        #print(np.unique(mask), mask.max())
+        
+        # Seting Image and Mask pixels to 0 1 interval
+        image = (image / image.max())
+        mask = mask / 3
 
+        # Applying transforms (Normalize and ToTensorV2)
         if self.transform is not None:
             augmentations = self.transform(image=image, mask=mask)
             image = augmentations["image"]
             mask = augmentations["mask"]
 
-        save_image(image, "teste.tiff")
-        save_image(mask, "mask_teste.tiff")
+        # If not applyed Image and Mask outputs will be Numpy and not Tensor
 
         return image, mask
