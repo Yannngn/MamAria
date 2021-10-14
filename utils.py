@@ -1,7 +1,7 @@
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
-
 from cv2 import imread
 from sklearn.metrics import precision_score, recall_score, f1_score
 
@@ -63,7 +63,7 @@ def get_loaders(
 
     return train_loader, val_loader
 
-def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = [.5, 1, 2, 2]):
+def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = [1, 1, 1, 1]):
     weights = np.zeros(num_labels)
     multiplier = np.array(multiplier)
     total_pixels = 0
@@ -88,7 +88,7 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = [.5, 1, 2, 2])
 
     return torch.tensor(out).float().to(device)
 
-def check_accuracy(loader, model, num_labels, device=DEVICE):
+def check_accuracy(loader, model, num_labels, time=0, device=DEVICE):
     num_correct = 0
     num_pixels = 0
     dice_score = 0
@@ -98,34 +98,48 @@ def check_accuracy(loader, model, num_labels, device=DEVICE):
     with torch.no_grad():
         for x, y in loader:
             x = x.to(device)
+            preds = model(x)
             y = y.to(device)
+
+            lossfn = nn.CrossEntropyLoss()
+            celoss = lossfn(preds, y.long())
+
             y = (y * 3.).unsqueeze(1)
-            
+
             # print("X to device:", x.shape, x.max(), x.min(), x.mean())
             # print("Y unsqueeze:", y.shape, y.max(), y.min(), y.mean())
 
-            preds = torch.log_softmax(model(x), 1)
-            
-            # print("Preds:", preds.shape, preds.max(), preds.min(), preds.mean())
-            
+            preds = torch.log_softmax(preds, 1)
             preds_labels = torch.argmax(preds, 1).unsqueeze(1)
             
             num_correct += (preds_labels == y).sum()
             num_pixels += torch.numel(preds_labels)
+            
+            # print("Preds:", preds.shape, preds.max(), preds.min(), preds.mean())
             #print("Preds Labels:", preds_labels.shape, preds_labels.max(), preds_labels.min(), preds_labels.unique(), preds_labels.float().mean())    
 
             dice_score = dice_loss(y, preds_labels, num_labels)
-    
+
     acc = evaluate_segmentation(preds_labels, y, 4, score_averaging='weighted')
-    print(f"Got {num_correct}/{num_pixels} with Global Accuracy: {acc[0] * 100:.2f}",
-          f"\nClasses Accuracy: {acc[1]}",
-          f"\nPrecisão: {acc[2]}",
-          f"\nRecall: {acc[3]}",
-          f"\nF1: {acc[4]}",
-          f"\nDice loss: {dice_score/len(loader)}",
-          f"\nMean IoU: {acc[5]}")
-    
+    acc.append(dice_score)
+    acc.append(celoss.numpy())
+
+    print_and_save_results(num_correct, num_pixels, acc, time)  
+
     model.train()
+
+def print_and_save_results(n0, n1, lst, time, folder="data/predictions/",):
+    print(f"Got {n0}/{n1} with Global Accuracy: {lst[0] * 100:.2f}",
+        f"\nClasses Accuracy: {lst[1]}",
+        f"\nPrecisão: {lst[2]}",
+        f"\nRecall: {lst[3]}",
+        f"\nF1: {lst[4]}",
+        f"\nMean IoU: {lst[5]}"
+        f"\nDice loss: {lst[6]}",
+        f"\nCrossEntropyLoss: {lst[7]}")
+    
+    with open(folder+f'{time}_preds.csv','a') as fd:
+        fd.write(','.join(map(str, [l for l in lst])) + '\n')
 
 def save_predictions_as_imgs(loader, model, epoch, folder="data/predictions/", device=DEVICE):
     print("=> Saving predictions as images")
@@ -250,4 +264,4 @@ def evaluate_segmentation(pred, label, num_classes, score_averaging="weighted"):
 
     iou = compute_mean_iou(flat_pred, flat_label)
 
-    return global_accuracy, class_accuracies, prec, rec, f1, iou
+    return [global_accuracy, class_accuracies, prec, rec, f1, iou]

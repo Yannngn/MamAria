@@ -3,6 +3,7 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torchsummary import summary
 from tqdm import tqdm
+from datetime import datetime
 import torch.nn as nn
 import torch.optim as optim
 from model import UNET
@@ -30,10 +31,10 @@ MASK_LABELS = 4
 PIN_MEMORY = True
 LOAD_MODEL = False
 PARENT_DIR = "C:/Users/Yann/Documents/GitHub/PyTorch_Seg/data/"
-TRAIN_IMG_DIR = PARENT_DIR + "phantom/"
-TRAIN_MASK_DIR = PARENT_DIR + "mask/"
-VAL_IMG_DIR = PARENT_DIR + "phantom/"
-VAL_MASK_DIR = PARENT_DIR + "mask/"
+TRAIN_IMG_DIR = PARENT_DIR + "train/phantom/"
+TRAIN_MASK_DIR = PARENT_DIR + "train/mask/"
+VAL_IMG_DIR = PARENT_DIR + "val/phantom/"
+VAL_MASK_DIR = PARENT_DIR + "val/mask/"
 SUB_IMG_DIR = PARENT_DIR + "test/"
 SUB_MASK_DIR = PARENT_DIR + "submission/"
 PREDICTIONS_DIR = PARENT_DIR + "predictions/"
@@ -90,19 +91,21 @@ def main():
     )
 
     model = UNET(in_channels = IMAGE_CHANNELS, classes= MASK_LABELS).to(DEVICE)
-    weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, device=DEVICE, multiplier = [0.5, 2, 3, 3])
+    weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, device=DEVICE)#, multiplier = [0.5, 2, 3, 3])
     loss_fn = nn.CrossEntropyLoss(weight=weights)
                          # Initial arguments were:      1e-5,           0.9,          True,              0.0001
                          # Second iteration:            1e-2,           0.9,          True,              0.0001
-    optimizer =optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    #optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
+    BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     if LOAD_MODEL:
         load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
     else :
         print("MODEL SUMMARY")
-        summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE)
+        #summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE)
 
-    check_accuracy(val_loader, model, MASK_LABELS, device=DEVICE)
+    check_accuracy(val_loader, model, MASK_LABELS, time=BEGIN, device=DEVICE)
 
     save_validation_as_imgs(val_loader, folder = PREDICTIONS_DIR, device = DEVICE)
 
@@ -124,7 +127,7 @@ def main():
         save_checkpoint(checkpoint)
 
         # check accuracy
-        check_accuracy(val_loader, model, MASK_LABELS, device=DEVICE)
+        check_accuracy(val_loader, model, MASK_LABELS, time=BEGIN, device=DEVICE)
 
         if epoch % 5 == 0 :
             # print some examples to a folder
