@@ -3,11 +3,11 @@ from shutil import copyfile
 from PIL import Image
 import numpy as np
 
-PATH = "C:/Users/Yann/Documents/GitHub/LesionInserter_Data/sphere/"
+PATH = "C:/Users/Yann/Documents/GitHub/LesionInserter_Data/spiculated_02/"
 OUT = "C:/Users/Yann/Documents/GitHub/PyTorch_Seg/data/"
 IMG_PATH = OUT + "phantom/"
 MSK_PATH = OUT + "mask/"
-NAME = "sphere"
+NAME = "spiculated_02"
 
 def main(path = PATH, name = NAME, get_slice = False, crop = False, output = OUT):
     if get_slice:

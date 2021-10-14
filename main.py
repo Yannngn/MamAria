@@ -60,6 +60,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
         loop.set_postfix(loss=loss.item())
 
 def main():
+
     train_transforms = A.Compose(
         [
             #A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
@@ -89,22 +90,23 @@ def main():
     )
 
     model = UNET(in_channels = IMAGE_CHANNELS, classes= MASK_LABELS).to(DEVICE)
-    loss_fn = nn.CrossEntropyLoss(weight = get_weights(train_loader, MASK_LABELS, device=DEVICE))
+    weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, device=DEVICE, multiplier = [0.5, 2, 3, 3])
+    loss_fn = nn.CrossEntropyLoss(weight=weights)
                          # Initial arguments were:      1e-5,           0.9,          True,              0.0001
                          # Second iteration:            1e-2,           0.9,          True,              0.0001
     optimizer =optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
 
     if LOAD_MODEL:
         load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
+    else :
+        print("MODEL SUMMARY")
+        summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE)
 
     check_accuracy(val_loader, model, MASK_LABELS, device=DEVICE)
-    
-    save_validation_as_imgs(val_loader, folder = PREDICTIONS_DIR, device=DEVICE)
-    
-    scaler = torch.cuda.amp.GradScaler()
 
-    with open("summary.txt", "w") as text_file:
-        print(summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE), file = text_file)
+    save_validation_as_imgs(val_loader, folder = PREDICTIONS_DIR, device = DEVICE)
+
+    scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(NUM_EPOCHS):
         print('================================================================')
@@ -123,8 +125,8 @@ def main():
 
         # check accuracy
         check_accuracy(val_loader, model, MASK_LABELS, device=DEVICE)
-        
-        if epoch % 10 == 0 :
+
+        if epoch % 5 == 0 :
             # print some examples to a folder
             save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device=DEVICE)
 
