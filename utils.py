@@ -12,6 +12,7 @@ from datetime import datetime
 from dataset import PhantomDataset
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+PREDICTIONS_DIR = "data/predictions/"
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -102,7 +103,7 @@ def check_accuracy(loader, model, num_labels, time=0, device=DEVICE):
             y = y.to(device)
 
             lossfn = nn.CrossEntropyLoss()
-            celoss = lossfn(preds, y.long())
+            celoss = lossfn(preds, y.long()).detach().numpy()
 
             y = (y * 3.).unsqueeze(1)
 
@@ -115,20 +116,22 @@ def check_accuracy(loader, model, num_labels, time=0, device=DEVICE):
             num_correct += (preds_labels == y).sum()
             num_pixels += torch.numel(preds_labels)
             
+            y = y.detach().numpy()
+            preds_labels = preds_labels.detach().numpy()
             # print("Preds:", preds.shape, preds.max(), preds.min(), preds.mean())
             #print("Preds Labels:", preds_labels.shape, preds_labels.max(), preds_labels.min(), preds_labels.unique(), preds_labels.float().mean())    
 
             dice_score = dice_loss(y, preds_labels, num_labels)
 
-    acc = evaluate_segmentation(preds_labels, y, 4, score_averaging='weighted')
-    acc.append(dice_score)
-    acc.append(celoss.numpy())
+            acc = evaluate_segmentation(preds_labels, y, 4, score_averaging='weighted')
+            acc.append(dice_score)
+            acc.append(celoss)
 
     print_and_save_results(num_correct, num_pixels, acc, time)  
 
     model.train()
 
-def print_and_save_results(n0, n1, lst, time, folder="data/predictions/",):
+def print_and_save_results(n0, n1, lst, time, folder=PREDICTIONS_DIR):
     print(f"Got {n0}/{n1} with Global Accuracy: {lst[0] * 100:.2f}",
         f"\nClasses Accuracy: {lst[1]}",
         f"\nPrecisão: {lst[2]}",
@@ -141,7 +144,7 @@ def print_and_save_results(n0, n1, lst, time, folder="data/predictions/",):
     with open(folder+f'{time}_preds.csv','a') as fd:
         fd.write(','.join(map(str, [l for l in lst])) + '\n')
 
-def save_predictions_as_imgs(loader, model, epoch, folder="data/predictions/", device=DEVICE):
+def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, device=DEVICE):
     print("=> Saving predictions as images")
     model.eval()
     with torch.no_grad():    
@@ -162,7 +165,7 @@ def save_predictions_as_imgs(loader, model, epoch, folder="data/predictions/", d
             
     model.train()
 
-def save_validation_as_imgs(loader, folder="data/predictions/", device=DEVICE):
+def save_validation_as_imgs(loader, folder=PREDICTIONS_DIR, device=DEVICE):
     print("=> Saving predictions as images")
 
     for idx, (_, y) in enumerate(loader):
@@ -191,7 +194,7 @@ def dice_coef(y_true, y_pred):
 
 def dice_coef_multilabel(y_true, y_pred, num_labels):
     dice=0
-    y_true, y_pred = y_true.numpy(), y_pred.numpy()
+    #y_true, y_pred = y_true.detach().numpy(), y_pred.detach().numpy()
     for index in range(num_labels):
         dice += dice_coef(y_true == index, y_pred == index)
     return dice / num_labels # taking average
@@ -202,7 +205,7 @@ def dice_loss(y_true, y_pred, num_labels):
 
 # Compute the average segmentation accuracy across all classes
 def compute_global_accuracy(pred, label):
-    pred, label = pred.numpy(), label.numpy()
+    #pred, label = pred.detach().numpy(), label.detach().numpy()
     total = len(label)
     count = 0.0
     for i in range(total):
@@ -213,7 +216,7 @@ def compute_global_accuracy(pred, label):
 # Compute the class-specific segmentation accuracy
 def compute_class_accuracies(pred, label, num_classes):
     total = []
-    pred, label = pred.numpy(), label.numpy()
+    #pred, label = pred.detach().numpy(), label.detach().numpy()
     for val in range(num_classes):
         total.append((label == val).sum())
 
@@ -235,7 +238,7 @@ def compute_class_accuracies(pred, label, num_classes):
     return accuracies
 
 def compute_mean_iou(pred, label):
-    pred, label = pred.numpy(), label.numpy()
+    #pred, label = pred.detach().numpy(), label.detach().numpy()
     unique_labels = np.unique(label)
     num_unique_labels = len(unique_labels)
 
