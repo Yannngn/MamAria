@@ -112,6 +112,7 @@ def check_accuracy(loader, model, num_labels, time=0, device=DEVICE):
 
             preds = torch.log_softmax(preds, 1)
             preds_labels = torch.argmax(preds, 1).unsqueeze(1)
+            preds_labels = reverse_label(preds_labels)
             
             num_correct += (preds_labels == y).sum()
             num_pixels += torch.numel(preds_labels)
@@ -142,21 +143,25 @@ def print_and_save_results(n0, n1, lst, time, folder=PREDICTIONS_DIR):
         f"\nCrossEntropyLoss: {lst[7]}")
     
     with open(folder+f'{time}_preds.csv','a') as fd:
-        fd.write(','.join(map(str, [l for l in lst])) + '\n')
+        fd.write(';'.join(map(str, [l for l in lst])) + '\n')
 
 def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, device=DEVICE):
     print("=> Saving predictions as images")
     model.eval()
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
+            preds = model(x)
 
-            preds = torch.log_softmax(model(x), 1)
+            preds_rgb = label_to_pixel(preds, "rgb")
+
+            save_image(preds_rgb, f"{folder}{now}_pred_rgb_e{epoch}_i{idx}.png")
+
+            preds = torch.log_softmax(preds, 1)
             preds_labels = torch.argmax(preds, 1)
             
             preds_labels = label_to_pixel(preds_labels)
-
-            now = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             save_image(preds_labels, f"{folder}{now}_pred_e{epoch}_i{idx}.png")
 
@@ -178,10 +183,28 @@ def save_validation_as_imgs(loader, folder=PREDICTIONS_DIR, device=DEVICE):
         #val = ToPILImage()(y).convert("L")
         #val.save(f"{folder}{now}_val_i{idx}.png")
         
-def label_to_pixel(preds):
-    preds = preds / 3
+def label_to_pixel(preds, col='l'):
+    if col == 'l':
+        preds[preds == 3] = 1/3
+        preds[preds == 2] = 2/3
+        preds[preds == 1] = 1.
 
-    return preds.unsqueeze(1).float()
+        #preds = preds / 3
+    
+        return preds.unsqueeze(1).float()
+    else:
+        preds = preds[:,1:,:,:]
+        preds = preds[:,[2,1,0],:,:]
+        print(preds.shape)
+
+        return preds.float()
+
+def reverse_label(preds):
+    preds[preds == 3] = 4
+    preds[preds == 1] = 3
+    preds[preds == 4] = 1
+
+    return preds
 
 def dice_coef(y_true, y_pred):
 

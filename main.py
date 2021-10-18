@@ -16,12 +16,20 @@ from utils import (
     save_validation_as_imgs,
     get_weights,
 )
+from loss import (
+    ce_loss,
+    dice_loss,
+    jaccard_loss,
+    tversky_loss,
+    bce_loss,
+
+)
 
 # Hyperparameters etc.
-LEARNING_RATE = 1e-5
+LEARNING_RATE = 3e-4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 50
-NUM_EPOCHS = 100
+NUM_EPOCHS = 1000
 NUM_WORKERS = 12
 IMAGE_HEIGHT = 256  # 256 originally
 IMAGE_WIDTH = 98  # 98 originally
@@ -39,6 +47,8 @@ SUB_IMG_DIR = PARENT_DIR + "test/"
 SUB_MASK_DIR = PARENT_DIR + "submission/"
 PREDICTIONS_DIR = PARENT_DIR + "predictions/"
 
+torch.manual_seed(19)
+
 def train_fn(loader, model, optimizer, loss_fn, scaler):
     loop = tqdm(loader)
 
@@ -49,7 +59,8 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
         # forward
         with torch.cuda.amp.autocast():
             predictions = model(data)
-            loss = loss_fn(predictions, targets)
+            #loss = loss_fn(predictions, targets)
+            loss = loss_fn(targets, predictions)
 
         # backward
         optimizer.zero_grad()
@@ -91,8 +102,8 @@ def main():
     )
 
     model = UNET(in_channels = IMAGE_CHANNELS, classes= MASK_LABELS).to(DEVICE)
-    weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, device=DEVICE)#, multiplier = [0.5, 2, 3, 3])
-    loss_fn = nn.CrossEntropyLoss(weight=weights)
+    #weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, device=DEVICE, multiplier = [100, 300, 200, 200])
+    #loss_fn = bce_loss()#nn.CrossEntropyLoss(weight=weights)
                          # Initial arguments were:      1e-5,           0.9,          True,              0.0001
                          # Second iteration:            1e-2,           0.9,          True,              0.0001
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -101,8 +112,8 @@ def main():
 
     if LOAD_MODEL:
         load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
-    else :
-        print("MODEL SUMMARY")
+    #else :
+        #print("MODEL SUMMARY")
         #summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE)
 
     check_accuracy(val_loader, model, MASK_LABELS, time=BEGIN, device=DEVICE)
@@ -116,7 +127,7 @@ def main():
         print('BEGINNING EPOCH', epoch, ':')
         print('================================================================')        
         
-        train_fn(train_loader, model, optimizer, loss_fn, scaler)
+        train_fn(train_loader, model, optimizer, dice_loss, scaler)
 
         # save model
         checkpoint = {

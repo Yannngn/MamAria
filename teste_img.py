@@ -64,11 +64,11 @@ def __getitem__(image_dir, mask_dir, index):
 
     # If not applyed Image and Mask outputs will be Numpy and not Tensor
 
-    save_image(image, 'image_test.tiff')
-    save_image(mask, 'mask_test.png')
+    #save_image(image, 'image_test.tiff')
+    #save_image(mask, 'mask_test.png')
 
     return image, mask
 
 if __name__ == "__main__":
     retornos = __getitem__(img_path, mask_path, 0)
-    print(np.unique(retornos[0]))
+    #print(np.unique(retornos[0]))
