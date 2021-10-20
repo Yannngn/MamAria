@@ -1,7 +1,5 @@
 import os
-import glob
 from shutil import copyfile, rmtree
-import numpy as np
 import random
 
 INPUT = "C:/Users/Yann/Documents/GitHub/PyTorch_Seg/data/"
@@ -21,7 +19,7 @@ def shuffle_train_val(path, train_dir, val_dir):
 
     img_files = [os.path.join(path, file) for file in os.listdir(path+'phantom/') if file.endswith('.tiff')]
     img_names = set([filepath_to_name(img) for img in img_files])
-    val_names = set(random.choices(list(img_names), k=5))
+    val_names = set(random.choices(list(img_names), k=10))
     train_names = img_names - val_names
     
     for file in val_names:

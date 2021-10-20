@@ -1,3 +1,4 @@
+from re import A
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -85,11 +86,11 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = [1, 1, 1, 1]):
         
         out = multiplier / (weights / (total_pixels * len(mask)))
     
-    print(out)
+    # print(out)
 
     return torch.tensor(out).float().to(device)
 
-def check_accuracy(loader, model, num_labels, time=0, device=DEVICE):
+def check_accuracy(loader, model, num_labels, device=DEVICE):
     num_correct = 0
     num_pixels = 0
     
@@ -110,19 +111,24 @@ def check_accuracy(loader, model, num_labels, time=0, device=DEVICE):
             y = y.to('cpu').numpy()
             preds_labels = preds_labels.detach().numpy()
 
-            acc = evaluate_segmentation(preds_labels, y, 4, score_averaging='weighted')
+            acc = evaluate_segmentation(preds_labels, y, num_labels, score_averaging = None)
 
-    print_and_save_results(num_correct, num_pixels, acc, time)  
-
+    #print_and_save_results(num_correct, num_pixels, acc, time)  
     model.train()
 
-def print_and_save_results(n0, n1, lst, time, folder=PREDICTIONS_DIR):
+    return [num_correct, num_pixels, acc]
+
+def print_and_save_results(n0, n1, lst, trainl, vall, time, folder=PREDICTIONS_DIR):
+    lst.append(trainl)
+    lst.append(vall)
     print(f"Got {n0}/{n1} with Global Accuracy: {lst[0] * 100:.4f}%",
         f"\nClasses Accuracy: {lst[1]}",
-        f"\nPrecisão: {lst[2]}",
+        f"\nPrecision: {lst[2]}",
         f"\nRecall: {lst[3]}",
         f"\nF1: {lst[4]}",
-        f"\nMean IoU: {lst[5]}")
+        f"\nMean IoU: {lst[5]}",
+        f"\nTrain Loss: {lst[6]}",
+        f"\nVal Loss: {lst[7]}",)
     
     with open(folder+f'{time}_preds.csv','a') as fd:
         fd.write(';'.join(map(str, [l for l in lst])) + '\n')
@@ -134,11 +140,11 @@ def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, devic
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
-            preds = torch.softmax(model(x))
-            print(preds.min(), preds.max())
-            preds_rgb = label_to_pixel(preds, "rgb")
+            preds = model(x) # torch.softmax(model(x), 1)
+            # print(preds.min(), preds.max())
+            # preds_rgb = label_to_pixel(preds, "rgb")
 
-            save_image(preds_rgb, f"{folder}{now}_pred_rgb_e{epoch}_i{idx}.png")
+            # save_image(preds_rgb, f"{folder}{now}_pred_rgb_e{epoch}_i{idx}.png")
 
             preds_labels = torch.argmax(preds, 1)
             
@@ -153,7 +159,7 @@ def save_validation_as_imgs(loader, folder=PREDICTIONS_DIR, device=DEVICE):
 
     for idx, (_, y) in enumerate(loader):
         y = y.to(device)
-        val = (y / 3).unsqueeze(1)
+        val = (y / y.max()).unsqueeze(1)
 
         now = datetime.now().strftime("%Y%m%d_%H%M%S")
         
@@ -223,7 +229,7 @@ def compute_class_accuracies(pred, label, num_classes):
 
     return accuracies
 
-def compute_mean_iou(pred, label):
+def compute_mean_iou(pred, label, mean=False):
     unique_labels = np.unique(label)
     num_unique_labels = len(unique_labels)
 
@@ -236,10 +242,15 @@ def compute_mean_iou(pred, label):
         label_i = label == val
         I[index] = float(np.sum(np.logical_and(label_i, pred_i)))
         U[index] = float(np.sum(np.logical_or(label_i, pred_i)))
+    
+    out = I/U
+    
+    if mean:
+        out = np.mean(out)
 
-    return np.mean(I / U)
+    return out
 
-def evaluate_segmentation(pred, label, num_classes, score_averaging="weighted"):
+def evaluate_segmentation(pred, label, num_classes, score_averaging=None):
     flat_pred = pred.flatten()
     flat_label = label.flatten()
 
@@ -247,8 +258,8 @@ def evaluate_segmentation(pred, label, num_classes, score_averaging="weighted"):
     class_accuracies = compute_class_accuracies(flat_pred, flat_label, num_classes)
 
     prec = precision_score(flat_pred, flat_label, average=score_averaging)
-    rec = recall_score(flat_pred, flat_label, average=score_averaging)
-    f1 = f1_score(flat_pred, flat_label, average=score_averaging)
+    rec = recall_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
+    f1 = f1_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
 
     iou = compute_mean_iou(flat_pred, flat_label)
 
