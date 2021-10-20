@@ -1,7 +1,7 @@
 import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from torchsummary import summary
+
 from tqdm import tqdm
 from datetime import datetime
 import torch.nn as nn
@@ -16,14 +16,18 @@ from utils import (
     save_validation_as_imgs,
     get_weights,
 )
+
+'''
+from torchsummary import summary
 from loss import (
     ce_loss,
     dice_loss,
     jaccard_loss,
     tversky_loss,
     bce_loss,
-
+    FocalLoss
 )
+'''
 
 # Hyperparameters etc.
 LEARNING_RATE = 3e-4
@@ -59,8 +63,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
         # forward
         with torch.cuda.amp.autocast():
             predictions = model(data)
-            #loss = loss_fn(predictions, targets)
-            loss = loss_fn(targets, predictions)
+            loss = loss_fn(predictions, targets)
 
         # backward
         optimizer.zero_grad()
@@ -75,16 +78,16 @@ def main():
 
     train_transforms = A.Compose(
         [
-            #A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            A.Normalize(mean=0.,std=1.,max_pixel_value=1.),
+            # A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
+            # A.Normalize(mean=0.,std=1.,max_pixel_value=1.),
             ToTensorV2(),
         ],
     )
 
     val_transforms = A.Compose(
         [
-            #A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            A.Normalize(mean=0.,std=1.,max_pixel_value=1.),
+            # A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
+            # A.Normalize(mean=0.,std=1.,max_pixel_value=1.),
             ToTensorV2(),
         ],
     )
@@ -102,19 +105,19 @@ def main():
     )
 
     model = UNET(in_channels = IMAGE_CHANNELS, classes= MASK_LABELS).to(DEVICE)
-    #weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, device=DEVICE, multiplier = [100, 300, 200, 200])
-    #loss_fn = bce_loss()#nn.CrossEntropyLoss(weight=weights)
-                         # Initial arguments were:      1e-5,           0.9,          True,              0.0001
-                         # Second iteration:            1e-2,           0.9,          True,              0.0001
+    weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, device=DEVICE)
+    loss_fn = nn.CrossEntropyLoss(weight=weights)
+
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     #optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
+
     BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     if LOAD_MODEL:
         load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
-    #else :
-        #print("MODEL SUMMARY")
-        #summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE)
+    # else :
+    #     print("MODEL SUMMARY")
+    #     summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE)
 
     check_accuracy(val_loader, model, MASK_LABELS, time=BEGIN, device=DEVICE)
 
@@ -127,7 +130,7 @@ def main():
         print('BEGINNING EPOCH', epoch, ':')
         print('================================================================')        
         
-        train_fn(train_loader, model, optimizer, dice_loss, scaler)
+        train_fn(train_loader, model, optimizer, loss_fn, scaler)#tversky_loss, scaler)
 
         # save model
         checkpoint = {

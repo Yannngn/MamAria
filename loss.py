@@ -2,7 +2,7 @@
 """
 
 import torch
-
+import torch.nn as nn
 from torch.nn import functional as F
 
 
@@ -160,14 +160,15 @@ def tversky_loss(true, logits, alpha, beta, eps=1e-7):
     tversky_loss = (num / (denom + eps)).mean()
     return (1 - tversky_loss)
 
+class FocalLoss(nn.modules.loss._WeightedLoss):
+    def __init__(self, weight=None, gamma=2,reduction='mean'):
+        super(FocalLoss, self).__init__(weight,reduction=reduction)
+        self.gamma = gamma
+        self.weight = weight #weight parameter will act as the alpha parameter to balance class weights
 
-def ce_dice(true, pred, log=False, w1=1, w2=1):
-    pass
+    def forward(self, input, target):
 
-
-def ce_jaccard(true, pred, log=False, w1=1, w2=1):
-    pass
-
-
-def focal_loss(true, pred):
-    pass
+        ce_loss = F.cross_entropy(input, target,reduction=self.reduction,weight=self.weight)
+        pt = torch.exp(-ce_loss)
+        focal_loss = ((1 - pt) ** self.gamma * ce_loss).mean()
+        return focal_loss
