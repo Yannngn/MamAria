@@ -134,8 +134,8 @@ def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, devic
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
-            preds = model(x)
-
+            preds = torch.softmax(model(x))
+            print(preds.min(), preds.max())
             preds_rgb = label_to_pixel(preds, "rgb")
 
             save_image(preds_rgb, f"{folder}{now}_pred_rgb_e{epoch}_i{idx}.png")
