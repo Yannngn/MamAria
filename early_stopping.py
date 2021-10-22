@@ -3,7 +3,7 @@ import numpy as np
 
 class EarlyStopping:
 
-    def __init__(self, patience=10, mode="min", delta=0.01):
+    def __init__(self, patience=10, mode="min", delta=0.01, epoch = 0, wait = 50):
 
         self.patience = patience
         self.counter = 0
@@ -11,6 +11,8 @@ class EarlyStopping:
         self.best_score = None
         self.early_stop = False
         self.delta = delta
+        self.epoch = epoch
+        self.wait = wait
 
         if self.mode == "min":
             self.val_score = np.Inf
@@ -18,7 +20,7 @@ class EarlyStopping:
             self.val_score = -np.Inf
 
 
-    def __call__(self, epoch_score, model, model_path, epoch = 0, wait = 50):
+    def __call__(self, epoch_score, model, model_path):
 
         if self.mode == "min":
             score = -1.0 * epoch_score
@@ -29,7 +31,7 @@ class EarlyStopping:
             self.best_score = score
             self.best_checkpoint(epoch_score, model, model_path)
         elif score < self.best_score + self.delta:
-            if epoch >= wait:
+            if self.epoch >= self.wait:
                 self.counter += 1
 
                 print(f"EarlyStopping counter: {self.counter} out of {self.patience}")

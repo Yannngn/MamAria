@@ -11,24 +11,30 @@ def main(path = INPUT, train = TRAIN, val = VAL, shuffle = False):
         shuffle_train_val(path, train, val)
                     
 def shuffle_train_val(path, train_dir, val_dir):
+    phantom_orig = path + 'phantom/'
+    mask_orig = path + 'mask/'
+    phantom_train = train_dir + 'phantom/'
+    mask_train = train_dir + 'mask/'
+    phantom_val = val_dir + 'phantom/'
+    mask_val = val_dir + 'mask/'
 
-    make_dirs(train_dir + 'phantom/')
-    make_dirs(train_dir + 'mask/')
-    make_dirs(val_dir + 'phantom/')
-    make_dirs(val_dir + 'mask/')
+    make_dirs(phantom_train)
+    make_dirs(mask_train)
+    make_dirs(phantom_val)
+    make_dirs(mask_val)
 
-    img_files = [os.path.join(path, file) for file in os.listdir(path+'phantom/') if file.endswith('.tiff')]
+    img_files = [os.path.join(path, file) for file in os.listdir(phantom_orig) if file.endswith('.tiff')]
     img_names = set([filepath_to_name(img) for img in img_files])
-    val_names = set(random.choices(list(img_names), k=10))
+    val_names = set(random.choices(list(img_names), k=11))
     train_names = img_names - val_names
     
     for file in val_names:
-        copyfile(path + 'phantom/' + file + '.tiff', val_dir + 'phantom/' + file + '.tiff')
-        copyfile(path + 'mask/' + file[:-5] + '_mask.png', val_dir + 'mask/' + file[:-5] + '_mask.png')
+        copyfile(phantom_orig + file + '.tiff', phantom_val + file + '.tiff')
+        copyfile(mask_orig + file[:-5] + '_mask.png', mask_val + file[:-5] + '_mask.png')
 
     for file in train_names:
-        copyfile(path + 'phantom/' + file + '.tiff', train_dir + 'phantom/' + file + '.tiff')
-        copyfile(path + 'mask/' + file[:-5] + '_mask.png', train_dir + 'mask/' + file[:-5] + '_mask.png')
+        copyfile(phantom_orig + file + '.tiff', phantom_train + file + '.tiff')
+        copyfile(mask_orig + file[:-5] + '_mask.png', mask_train + file[:-5] + '_mask.png')
 
 def filepath_to_name(full_name):
     file_name = os.path.basename(full_name)
