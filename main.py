@@ -22,7 +22,7 @@ from utils import (
 LEARNING_RATE = 3e-4 ### Begin with 3e-4, 96.41% now 8e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 50
-NUM_EPOCHS = 150
+NUM_EPOCHS = 1000
 NUM_WORKERS = 12
 IMAGE_HEIGHT = 256  # 256 originally
 IMAGE_WIDTH = 98  # 98 originally
@@ -31,7 +31,7 @@ MASK_CHANNELS = 1
 MASK_LABELS = 4
 PIN_MEMORY = True
 LOAD_MODEL = False
-PARENT_DIR = "C:/Users/Yann/Documents/GitHub/PyTorch_Seg/data/"
+PARENT_DIR = "data/"
 TRAIN_IMG_DIR = PARENT_DIR + "train/phantom/"
 TRAIN_MASK_DIR = PARENT_DIR + "train/mask/"
 VAL_IMG_DIR = PARENT_DIR + "val/phantom/"
@@ -125,7 +125,7 @@ def main():
 
     scaler = torch.cuda.amp.GradScaler()
 
-    stopping = EarlyStopping(patience = 15, mode = 'min')
+    stopping = EarlyStopping(patience = 15, mode = 'min', wait=20)
 
     for epoch in range(NUM_EPOCHS):
         print('================================================================')
@@ -156,7 +156,8 @@ def main():
             # print some examples to a folder
             save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device = DEVICE)
 
-        stopping(val_loss, model, model_path=f"checkpoints/{BEGIN}_best_checkpoint.pth.tar")
+        stopping(val_loss, checkpoint, model_path=f"checkpoints/{BEGIN}_best_checkpoint.pth.tar", epoch = epoch)
+        
         if stopping.early_stop:
             print("Early Stopping ...")
             break

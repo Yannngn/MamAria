@@ -21,7 +21,15 @@ def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
 
 def load_checkpoint(checkpoint, model):
     print("=> Loading checkpoint")
-    model.load_state_dict(checkpoint["state_dict"])
+    try:
+        model.load_state_dict(checkpoint["state_dict"])
+    except KeyError:
+        pass
+    
+    try:
+        model.load_state_dict(checkpoint)
+    except KeyError as e:
+        raise ValueError(f'Key {e} is different from expected "state_dict"')
 
 def get_loaders(
     train_dir,
