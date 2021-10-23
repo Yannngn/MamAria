@@ -26,7 +26,7 @@ from utils import (
 torch.manual_seed(19)
 
 # Hyperparameters etc.
-PROJECT_NAME = "lesion_segmentation_4285_50_02"
+PROJECT_NAME = "segmentation_4285_50_02"
 LEARNING_RATE = 3e-4 ### Begin with 3e-4, 96.41% now 8e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 50
@@ -155,7 +155,7 @@ def main():
         print('================================================================')
         print('BEGINNING EPOCH', epoch, ':')
         print('================================================================')        
-        
+
         train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler)
 
         # save model
@@ -208,7 +208,7 @@ def main():
             wandb.finish()
             break
 
-        wandb.finish()
+    wandb.finish()
 
 if __name__ == "__main__":
     main()
