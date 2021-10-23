@@ -91,10 +91,8 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = [1, 1, 1, 1]):
             temp.append((mask == i).sum())
         
         weights += temp
-        
-        out = multiplier / (weights / (total_pixels * len(mask)))
-    
-    # print(out)
+        den = weights / (total_pixels * len(mask))
+        out = np.divide(multiplier, den, out = np.zeros_like(multiplier, dtype = float), where = den!=0)
 
     return torch.tensor(out).float().to(device)
 
@@ -131,10 +129,10 @@ def print_and_save_results(n0, n1, lst, trainl, vall, time, folder=PREDICTIONS_D
     lst.append(vall)
     print(f"Got {n0}/{n1} with Global Accuracy: {lst[0] * 100:.4f}%",
         f"\nClasses Accuracy: {lst[1]}",
-        f"\nPrecision: {lst[2]}",
-        f"\nRecall: {lst[3]}",
-        f"\nF1: {lst[4]}",
-        f"\nMean IoU: {lst[5]}",
+        #f"\nPrecision: {lst[2]}",
+        #f"\nRecall: {lst[3]}",
+        #f"\nF1: {lst[4]}",
+        #f"\nMean IoU: {lst[5]}",
         f"\nTrain Loss: {lst[6]}",
         f"\nVal Loss: {lst[7]}",)
     
@@ -148,14 +146,7 @@ def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, devic
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
-            preds = model(x) # torch.softmax(model(x), 1)
-            # print(preds.min(), preds.max())
-            # preds_rgb = label_to_pixel(preds, "rgb")
-
-            # save_image(preds_rgb, f"{folder}{now}_pred_rgb_e{epoch}_i{idx}.png")
-
-            preds_labels = torch.argmax(preds, 1)
-            
+            preds_labels = torch.argmax(model(x), 1)
             preds_labels = label_to_pixel(preds_labels)
 
             save_image(preds_labels, f"{folder}{now}_pred_e{epoch}_i{idx}.png")
@@ -175,14 +166,12 @@ def save_validation_as_imgs(loader, folder=PREDICTIONS_DIR, device=DEVICE):
         
 def label_to_pixel(preds, col='l'):
     if col == 'l':
-
         preds = preds / 3
         preds = preds.unsqueeze(1).float()
-
         return preds
+
     else:
         preds = preds[:,1:,:,:]
-
         return preds.float()
 
 def dice_coef(y_true, y_pred):
@@ -271,4 +260,4 @@ def evaluate_segmentation(pred, label, num_classes, score_averaging=None):
 
     iou = compute_mean_iou(flat_pred, flat_label)
 
-    return [global_accuracy, class_accuracies, prec, rec, f1, iou]
+    return [global_accuracy, np.array(class_accuracies), np.array(prec), np.array(rec), np.array(f1), np.array(iou)]

@@ -1,0 +1,30 @@
+sweep_config = {
+    'method' 'grid', # grid, random
+    'metric' {
+      'name' 'loss',
+      'goal' 'minimize'   
+    },
+    'parameters' {
+        'epochs' {
+            'values' [100, 150, 200]
+        },
+        'batch_size' {
+            'values' [60, 50, 25, 5]
+        },
+        'dropout' {
+            'values' [0.6, 0.5, 0.4]
+        },
+        'learning_rate' {
+            'values' [1e-3, 1e-4, 3e-4, 3e-5, 1e-5]
+        },
+        'max_layer_size'{
+            'values'[512,1024,2056]
+        },
+        'min_layer_size'{
+            'values'[64, 32, 16]
+        },
+        # 'optimizer' {
+        #     'values' ['adam', 'sgd']
+        # },
+    }
+}

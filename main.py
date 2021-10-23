@@ -1,12 +1,17 @@
+import wandb
+
 import torch
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-from early_stopping import EarlyStopping
-from tqdm import tqdm
-from datetime import datetime
 import torch.nn as nn
 import torch.optim as optim
+
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+
+from tqdm import tqdm
+from datetime import datetime
+
 from model import UNET
+from early_stopping import EarlyStopping
 from utils import (
     load_checkpoint,
     save_checkpoint,
@@ -18,7 +23,10 @@ from utils import (
     print_and_save_results
 )
 
+torch.manual_seed(19)
+
 # Hyperparameters etc.
+PROJECT_NAME = "lesion_segmentation_4285_50_02"
 LEARNING_RATE = 3e-4 ### Begin with 3e-4, 96.41% now 8e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 50
@@ -40,11 +48,25 @@ SUB_IMG_DIR = PARENT_DIR + "test/"
 SUB_MASK_DIR = PARENT_DIR + "submission/"
 PREDICTIONS_DIR = PARENT_DIR + "predictions/"
 
-torch.manual_seed(19)
+#sweep_id = wandb.sweep('sweep_config.yaml', project=PROJECT_NAME)
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
     loop = tqdm(loader)
+    
+    config_defaults = {
+        'epochs': NUM_EPOCHS,
+        'batch_size': BATCH_SIZE,
+        'learning_rate': LEARNING_RATE,
+    }
 
+    wandb.init(
+        project = PROJECT_NAME,
+        entity='tail-upenn',
+        #group='experiment-1',
+        config=config_defaults)
+
+    config = wandb.config
+    closs = 0
     for _, (data, targets) in enumerate(loop):
         data = data.to(device=DEVICE)
         targets = targets.long().to(device=DEVICE)
@@ -62,7 +84,9 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
 
         # update tqdm loop
         loop.set_postfix(loss=loss.item())
-    
+        wandb.log({"batch loss":loss.item()})
+        closs += loss.item()
+    wandb.log({"loss":closs/config.batch_size}) 
     ### IF doesnt work remove here
     return loss.item()
 
@@ -132,7 +156,6 @@ def main():
         print('BEGINNING EPOCH', epoch, ':')
         print('================================================================')        
         
-        ### IF doesnt work revert here to train_fn(train_loader, model, optimizer, loss_fn, scaler)
         train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler)
 
         # save model
@@ -149,18 +172,43 @@ def main():
 
         val_loss = validate_fn(val_loader, model, loss_fn)
         scheduler.step(val_loss)
-
-        print_and_save_results(accuracies[0], accuracies[1], accuracies[2], train_loss, val_loss, BEGIN)
+        metrics = accuracies[2]
+        dict_log = {"val_loss":val_loss,
+                    "accuracy":metrics[0],
+                    "label_0_accuracy":metrics[1][0],
+                    "label_1_accuracy":metrics[1][1],
+                    "label_2_accuracy":metrics[1][2],
+                    "label_3_accuracy":metrics[1][3],
+                    "label_0_recall":metrics[2][0],
+                    "label_1_recall":metrics[2][1],
+                    "label_2_recall":metrics[2][2],
+                    "label_3_recall":metrics[2][3],
+                    # "label_0_f1":metrics[3][0],
+                    # "label_1_f1":metrics[3][1],
+                    # "label_2_f1":metrics[3][2],
+                    # "label_3_f1":metrics[3][3],
+                    # "label_0_iou":metrics[4][0],
+                    # "label_1_iou":metrics[4][1],
+                    # "label_2_iou":metrics[4][2],
+                    # "label_3_iou":metrics[4][3]
+                   }
+        
+        wandb.log(dict_log) 
+        print_and_save_results(accuracies[0], accuracies[1], metrics, train_loss, val_loss, BEGIN)
 
         if epoch % 5 == 0 :
             # print some examples to a folder
             save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device = DEVICE)
 
-        stopping(val_loss, checkpoint, model_path=f"checkpoints/{BEGIN}_best_checkpoint.pth.tar", epoch = epoch)
+        stopping(val_loss, checkpoint, checkpoint_path=f"checkpoints/{BEGIN}_best_checkpoint.pth.tar", epoch = epoch)
         
         if stopping.early_stop:
             print("Early Stopping ...")
+            #wandb.agent(sweep_id, train_fn)
+            wandb.finish()
             break
+
+        wandb.finish()
 
 if __name__ == "__main__":
     main()

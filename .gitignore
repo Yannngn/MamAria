@@ -1,3 +1,5 @@
 *.7z
 *.pth.tar
 data/
+wandb/
+checkpoints/
