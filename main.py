@@ -24,21 +24,26 @@ from utils import (
 )
 
 torch.manual_seed(19)
-
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # Hyperparameters etc.
 PROJECT_NAME = "segmentation_4285_50_02"
+PROJECT_TEAM = 'tail-upenn'
+
 LEARNING_RATE = 3e-4 ### Begin with 3e-4, 96.41% now 8e-5
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 50
 NUM_EPOCHS = 1000
 NUM_WORKERS = 12
+
 IMAGE_HEIGHT = 256  # 256 originally
 IMAGE_WIDTH = 98  # 98 originally
 IMAGE_CHANNELS = 1
 MASK_CHANNELS = 1
 MASK_LABELS = 4
+
 PIN_MEMORY = True
 LOAD_MODEL = False
+
+# Paths
 PARENT_DIR = "data/"
 TRAIN_IMG_DIR = PARENT_DIR + "train/phantom/"
 TRAIN_MASK_DIR = PARENT_DIR + "train/mask/"
@@ -61,12 +66,13 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
 
     wandb.init(
         project = PROJECT_NAME,
-        entity='tail-upenn',
+        entity=PROJECT_TEAM,
         #group='experiment-1',
         config=config_defaults)
 
     config = wandb.config
     closs = 0
+
     for _, (data, targets) in enumerate(loop):
         data = data.to(device=DEVICE)
         targets = targets.long().to(device=DEVICE)
@@ -84,10 +90,13 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
 
         # update tqdm loop
         loop.set_postfix(loss=loss.item())
+
+        # wandb logging
         wandb.log({"batch loss":loss.item()})
         closs += loss.item()
-    wandb.log({"loss":closs/config.batch_size}) 
-    ### IF doesnt work remove here
+    
+    wandb.log({"loss":closs/config.batch_size})
+
     return loss.item()
 
 def validate_fn(loader, model, loss_fn):
@@ -138,10 +147,7 @@ def main():
     BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     if LOAD_MODEL:
-        load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
-    # else :
-    #     print("MODEL SUMMARY")
-    #     summary(model, (IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH), BATCH_SIZE, DEVICE)
+        load_checkpoint(torch.load("my_checkpoint.pth.tar"), model, optimizer, scheduler)
 
     check_accuracy(val_loader, model, MASK_LABELS, DEVICE)
 
@@ -149,12 +155,12 @@ def main():
 
     scaler = torch.cuda.amp.GradScaler()
 
-    stopping = EarlyStopping(patience = 15, mode = 'min', wait=20)
+    stopping = EarlyStopping(patience = 15, wait = 20)
 
     for epoch in range(NUM_EPOCHS):
-        print('================================================================')
+        print('================================================================================================================================')
         print('BEGINNING EPOCH', epoch, ':')
-        print('================================================================')        
+        print('================================================================================================================================')        
 
         train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler)
 
@@ -183,14 +189,6 @@ def main():
                     "label_1_recall":metrics[2][1],
                     "label_2_recall":metrics[2][2],
                     "label_3_recall":metrics[2][3],
-                    # "label_0_f1":metrics[3][0],
-                    # "label_1_f1":metrics[3][1],
-                    # "label_2_f1":metrics[3][2],
-                    # "label_3_f1":metrics[3][3],
-                    # "label_0_iou":metrics[4][0],
-                    # "label_1_iou":metrics[4][1],
-                    # "label_2_iou":metrics[4][2],
-                    # "label_3_iou":metrics[4][3]
                    }
         
         wandb.log(dict_log) 

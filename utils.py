@@ -1,6 +1,4 @@
-from re import A
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from cv2 import imread
@@ -19,13 +17,14 @@ def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
     torch.save(state, filename)
 
-def load_checkpoint(checkpoint, model):
+def load_checkpoint(checkpoint, model, optimizer, scheduler):
     print("=> Loading checkpoint")
     try:
         model.load_state_dict(checkpoint["state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        optimizer.load_state_dict(checkpoint["scheduler"])
     except KeyError:
         pass
-    
     try:
         model.load_state_dict(checkpoint)
     except KeyError as e:
@@ -174,26 +173,6 @@ def label_to_pixel(preds, col='l'):
         preds = preds[:,1:,:,:]
         return preds.float()
 
-def dice_coef(y_true, y_pred):
-
-    y_true_f = y_true.flatten()
-    y_pred_f = y_pred.flatten()
-
-    intersection = np.sum(y_true_f * y_pred_f)
-    smooth = 0.0001
-    return (2. * intersection + smooth) / (np.sum(y_true_f) + np.sum(y_pred_f) + smooth)
-
-def dice_coef_multilabel(y_true, y_pred, num_labels):
-    dice=0
-
-    for index in range(num_labels):
-        dice += dice_coef(y_true == index, y_pred == index)
-    return dice / num_labels # taking average
-
-def dice_loss(y_true, y_pred, num_labels):
-    loss = 1 - dice_coef_multilabel(y_true, y_pred, num_labels)
-    return loss
-
 # Compute the average segmentation accuracy across all classes
 def compute_global_accuracy(pred, label):
     total = len(label)
@@ -216,11 +195,11 @@ def compute_class_accuracies(pred, label, num_classes):
 
     # If there are no pixels from a certain class in the GT, 
     # it returns NAN because of divide by zero
-    # Replace the nans with a 1.0.
+    # Replace the nans with a 0.0.
     accuracies = []
     for i in range(len(total)):
         if total[i] == 0:
-            accuracies.append(1.0)
+            accuracies.append(0.0)
         else:
             accuracies.append(count[i] / total[i])
 
@@ -230,11 +209,9 @@ def compute_mean_iou(pred, label, mean=False):
     unique_labels = np.unique(label)
     num_unique_labels = len(unique_labels)
 
-    I = np.zeros(num_unique_labels)
-    U = np.zeros(num_unique_labels)
+    I, U = np.zeros(num_unique_labels), np.zeros(num_unique_labels)
 
     for index, val in enumerate(unique_labels):
-        
         pred_i = pred == val
         label_i = label == val
         I[index] = float(np.sum(np.logical_and(label_i, pred_i)))
