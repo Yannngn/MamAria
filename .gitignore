@@ -1,5 +1,6 @@
 *.7z
 *.pth.tar
+wandb_authorize.py
 data/
 wandb/
 checkpoints/

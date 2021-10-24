@@ -1,5 +1,5 @@
 import wandb
-
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -23,35 +23,43 @@ from utils import (
     print_and_save_results
 )
 
+# Initial Config
+
 torch.manual_seed(19)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-# Hyperparameters etc.
+NUM_WORKERS = 12
 PROJECT_NAME = "segmentation_4285_50_02"
 PROJECT_TEAM = 'tail-upenn'
+SCHEDULER = True
+EARLYSTOP = True
+PIN_MEMORY = True
+LOAD_MODEL = False
+SAVE_EVERY = 5
+# Hyperparameters
 
-LEARNING_RATE = 3e-4 ### Begin with 3e-4, 96.41% now 8e-5
+LEARNING_RATE = 3e-4
 BATCH_SIZE = 50
 NUM_EPOCHS = 1000
-NUM_WORKERS = 12
+DROPOUT = 0.0
+OPTIMIZER = 'adam'
+MAX_LAYER_SIZE = 1024
+MIN_LAYER_SIZE = 64
 
-IMAGE_HEIGHT = 256  # 256 originally
-IMAGE_WIDTH = 98  # 98 originally
+# Image Information
+
+IMAGE_HEIGHT = 256
+IMAGE_WIDTH = 98
 IMAGE_CHANNELS = 1
 MASK_CHANNELS = 1
 MASK_LABELS = 4
 
-PIN_MEMORY = True
-LOAD_MODEL = False
-
 # Paths
-PARENT_DIR = "data/"
-TRAIN_IMG_DIR = PARENT_DIR + "train/phantom/"
-TRAIN_MASK_DIR = PARENT_DIR + "train/mask/"
-VAL_IMG_DIR = PARENT_DIR + "val/phantom/"
-VAL_MASK_DIR = PARENT_DIR + "val/mask/"
-SUB_IMG_DIR = PARENT_DIR + "test/"
-SUB_MASK_DIR = PARENT_DIR + "submission/"
-PREDICTIONS_DIR = PARENT_DIR + "predictions/"
+PARENT_DIR = os.path.abspath(__file__)
+TRAIN_IMG_DIR = "data/train/phantom/"
+TRAIN_MASK_DIR = "data/train/mask/"
+VAL_IMG_DIR = "data/val/phantom/"
+VAL_MASK_DIR = "data/val/mask/"
+PREDICTIONS_DIR = "data/predictions/"
 
 #sweep_id = wandb.sweep('sweep_config.yaml', project=PROJECT_NAME)
 
@@ -136,13 +144,15 @@ def main():
         PIN_MEMORY,
     )
 
-    model = UNET(in_channels = IMAGE_CHANNELS, classes= MASK_LABELS).to(DEVICE)
+    model = UNET(in_channels = IMAGE_CHANNELS, classes = MASK_LABELS).to(DEVICE)
     weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, DEVICE)
     loss_fn = nn.CrossEntropyLoss(weight = weights)
-
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    #optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+    if OPTIMIZER == 'Adam':
+        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    elif OPTIMIZER == 'SGD':
+        optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
+    if SCHEDULER:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 
     BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -175,10 +185,12 @@ def main():
 
         # check accuracy
         accuracies = check_accuracy(val_loader, model, MASK_LABELS, DEVICE)
-
-        val_loss = validate_fn(val_loader, model, loss_fn)
-        scheduler.step(val_loss)
         metrics = accuracies[2]
+        val_loss = validate_fn(val_loader, model, loss_fn)
+
+        if SCHEDULER:
+            scheduler.step(val_loss)
+
         dict_log = {"val_loss":val_loss,
                     "accuracy":metrics[0],
                     "label_0_accuracy":metrics[1][0],
@@ -193,18 +205,19 @@ def main():
         
         wandb.log(dict_log) 
         print_and_save_results(accuracies[0], accuracies[1], metrics, train_loss, val_loss, BEGIN)
-
-        if epoch % 5 == 0 :
-            # print some examples to a folder
-            save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device = DEVICE)
-
-        stopping(val_loss, checkpoint, checkpoint_path=f"checkpoints/{BEGIN}_best_checkpoint.pth.tar", epoch = epoch)
         
-        if stopping.early_stop:
-            print("Early Stopping ...")
-            #wandb.agent(sweep_id, train_fn)
-            wandb.finish()
-            break
+        # Print predictions to folder   
+        if epoch % SAVE_EVERY == 0:
+            save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device = DEVICE)
+        
+        if EARLYSTOP:
+            stopping(val_loss, checkpoint, checkpoint_path=f"checkpoints/{BEGIN}_best_checkpoint.pth.tar", epoch = epoch)
+            
+            if stopping.early_stop:
+                print("Early Stopping ...")
+                #wandb.agent(sweep_id, train_fn)
+                wandb.finish()
+                break
 
     wandb.finish()
 

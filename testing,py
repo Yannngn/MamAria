@@ -1,7 +1,0 @@
-ml = 2048
-layers = [1, 64]
-while(ml > 64):
-    layers.insert(2,ml)
-    ml = int(ml * .5)
-
-print(layers)

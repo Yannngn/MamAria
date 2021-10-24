@@ -4,7 +4,7 @@ import random
 from PIL import Image
 from shutil import copyfile, rmtree
 
-PATH = "C:/Users/Yann/Documents/GitHub/LesionInserter-data/"
+PATH = '/'.join(os.path.abspath(__file__).split('\\')[:-2]) + "/LesionInserter-data/"
 OUT = "data/"
 
 # IMG_PATH = OUT + "submission/input/phantom/"
@@ -20,7 +20,7 @@ FILES = ["null_9_0000_00_00",
          "spiculated_1_4285_50_02",
          "spiculated_2_4285_50_02"]
 
-FILES = ['calc_4_5000_30_42']
+#FILES = ['calc_4_5000_30_42']
 
 def main(path = PATH, files = FILES, img_path = IMG_PATH, mask_path = MSK_PATH, get_slice = False, crop = False, delete = False, shuffle = False):
     if delete:
@@ -29,12 +29,12 @@ def main(path = PATH, files = FILES, img_path = IMG_PATH, mask_path = MSK_PATH, 
         clear_data(TRAIN)
         clear_data(VAL)
     
-    for file in files:
-        if get_slice:
+    if get_slice:
+        for file in files:
             get_slices(path + file + '/', file, img_path, mask_path)
             
-        if crop:
-            cropper(img_path, mask_path)
+    if crop:
+        cropper(img_path, mask_path)
 
     if shuffle:
         shuffle_train_val(OUT, TRAIN, VAL)

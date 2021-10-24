@@ -21,8 +21,10 @@ def load_checkpoint(checkpoint, model, optimizer, scheduler):
     print("=> Loading checkpoint")
     try:
         model.load_state_dict(checkpoint["state_dict"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        optimizer.load_state_dict(checkpoint["scheduler"])
+        if optimizer is not None:
+            optimizer.load_state_dict(checkpoint["optimizer"])
+        if scheduler is not None:
+            scheduler.load_state_dict(checkpoint["scheduler"])
     except KeyError:
         pass
     try:
@@ -114,11 +116,10 @@ def check_accuracy(loader, model, num_labels, device=DEVICE):
             num_pixels += torch.numel(preds_labels)
             
             y = y.to('cpu').numpy()
-            preds_labels = preds_labels.detach().numpy()
+            preds_labels = preds_labels.to('cpu').numpy()
 
             acc = evaluate_segmentation(preds_labels, y, num_labels, score_averaging = None)
 
-    #print_and_save_results(num_correct, num_pixels, acc, time)  
     model.train()
 
     return [num_correct, num_pixels, acc]
@@ -127,13 +128,10 @@ def print_and_save_results(n0, n1, lst, trainl, vall, time, folder=PREDICTIONS_D
     lst.append(trainl)
     lst.append(vall)
     print(f"Got {n0}/{n1} with Global Accuracy: {lst[0] * 100:.4f}%",
-        f"\nClasses Accuracy: {lst[1]}",
-        #f"\nPrecision: {lst[2]}",
-        #f"\nRecall: {lst[3]}",
-        #f"\nF1: {lst[4]}",
-        #f"\nMean IoU: {lst[5]}",
-        f"\nTrain Loss: {lst[6]}",
-        f"\nVal Loss: {lst[7]}",)
+          f"\nClasses Accuracy: {lst[1]}",
+          f"\nRecall: {lst[3]}",
+          f"\nTrain Loss: {lst[6]}",
+          f"\nVal Loss: {lst[7]}")
     
     with open(folder+f'{time}_preds.csv','a') as fd:
         fd.write(';'.join(map(str, [l for l in lst])) + '\n')

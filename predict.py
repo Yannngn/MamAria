@@ -1,3 +1,4 @@
+import os
 import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
@@ -31,10 +32,10 @@ MASK_CHANNELS = 1
 MASK_LABELS = 4
 PIN_MEMORY = True
 CHECKPOINT_PATH = "checkpoints/20211020_191703_best_checkpoint.pth.tar"
-PARENT_DIR = "data/"
-INPUT_IMG_DIR = PARENT_DIR + "submission/input/phantom/"
-INPUT_MASK_DIR = PARENT_DIR + "submission/input/mask/"
-PREDICTIONS_DIR = PARENT_DIR + "submission/predictions/"
+PARENT_DIR = os.path.abspath(__file__)
+INPUT_IMG_DIR = "data/submission/input/phantom/"
+INPUT_MASK_DIR = "data/submission/input/mask/"
+PREDICTIONS_DIR = "data/submission/predictions/"
 
 torch.manual_seed(19)
 
@@ -74,7 +75,7 @@ def main():
 
     BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    load_checkpoint(torch.load(CHECKPOINT_PATH), model)
+    load_checkpoint(torch.load(CHECKPOINT_PATH), model, optimizer=None, scheduler=None)
 
     save_validation_as_imgs(pred_loader, folder = PREDICTIONS_DIR, device = DEVICE)
     
