@@ -1,3 +1,4 @@
+from torch._C import ErrorReport
 import wandb
 import os
 import torch
@@ -28,7 +29,7 @@ from utils import (
 torch.manual_seed(19)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 12
-PROJECT_NAME = "segmentation_4285_50_02"
+PROJECT_NAME = "name"
 PROJECT_TEAM = 'tail-upenn'
 SCHEDULER = True
 EARLYSTOP = True
@@ -44,7 +45,7 @@ DROPOUT = 0.0
 OPTIMIZER = 'adam'
 MAX_LAYER_SIZE = 1024
 MIN_LAYER_SIZE = 64
-
+WEIGHTS = True
 # Image Information
 
 IMAGE_HEIGHT = 256
@@ -60,6 +61,7 @@ TRAIN_MASK_DIR = "data/train/mask/"
 VAL_IMG_DIR = "data/val/phantom/"
 VAL_MASK_DIR = "data/val/mask/"
 PREDICTIONS_DIR = "data/predictions/"
+BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 #sweep_id = wandb.sweep('sweep_config.yaml', project=PROJECT_NAME)
 
@@ -126,47 +128,7 @@ def validate_fn(loader, model, loss_fn):
     
     return loss.item()
 
-def main():
-
-    train_transforms = A.Compose([ToTensorV2(),],)
-
-    val_transforms = A.Compose([ToTensorV2(),],)
-
-    train_loader, val_loader = get_loaders(
-        TRAIN_IMG_DIR,
-        TRAIN_MASK_DIR,
-        VAL_IMG_DIR,
-        VAL_MASK_DIR,
-        BATCH_SIZE,
-        train_transforms,
-        val_transforms,
-        NUM_WORKERS,
-        PIN_MEMORY,
-    )
-
-    model = UNET(in_channels = IMAGE_CHANNELS, classes = MASK_LABELS).to(DEVICE)
-    weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, DEVICE)
-    loss_fn = nn.CrossEntropyLoss(weight = weights)
-    if OPTIMIZER == 'Adam':
-        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    elif OPTIMIZER == 'SGD':
-        optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
-    if SCHEDULER:
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-
-    BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    if LOAD_MODEL:
-        load_checkpoint(torch.load("my_checkpoint.pth.tar"), model, optimizer, scheduler)
-
-    check_accuracy(val_loader, model, MASK_LABELS, DEVICE)
-
-    save_validation_as_imgs(val_loader, folder = PREDICTIONS_DIR, device = DEVICE)
-
-    scaler = torch.cuda.amp.GradScaler()
-
-    stopping = EarlyStopping(patience = 15, wait = 20)
-
+def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping):
     for epoch in range(NUM_EPOCHS):
         print('================================================================================================================================')
         print('BEGINNING EPOCH', epoch, ':')
@@ -185,9 +147,9 @@ def main():
 
         # check accuracy
         accuracies = check_accuracy(val_loader, model, MASK_LABELS, DEVICE)
-        metrics = accuracies[2]
         val_loss = validate_fn(val_loader, model, loss_fn)
-
+        metrics = accuracies[2]
+        
         if SCHEDULER:
             scheduler.step(val_loss)
 
@@ -215,11 +177,69 @@ def main():
             
             if stopping.early_stop:
                 print("Early Stopping ...")
+                save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device = DEVICE)
                 #wandb.agent(sweep_id, train_fn)
                 wandb.finish()
                 break
-
+    
     wandb.finish()
+    print("Training Finished")
+
+def main():
+
+    train_transforms, val_transforms = A.Compose([ToTensorV2(),],), A.Compose([ToTensorV2(),],)
+
+    train_loader, val_loader = get_loaders(
+        TRAIN_IMG_DIR,
+        TRAIN_MASK_DIR,
+        VAL_IMG_DIR,
+        VAL_MASK_DIR,
+        BATCH_SIZE,
+        train_transforms,
+        val_transforms,
+        NUM_WORKERS,
+        PIN_MEMORY,
+    )
+
+    model = UNET(in_channels = IMAGE_CHANNELS, classes = MASK_LABELS).to(DEVICE)
+
+    if WEIGHTS:
+        weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, DEVICE)
+        loss_fn = nn.CrossEntropyLoss(weight = weights)
+    else:
+        loss_fn = nn.CrossEntropyLoss()
+    
+    if OPTIMIZER == 'Adam':
+        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    elif OPTIMIZER == 'SGD':
+        optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
+    else:
+        raise KeyError(f"optimizer {OPTIMIZER} not recognized.")
+    
+    if SCHEDULER:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+
+    if LOAD_MODEL:
+        load_checkpoint(torch.load("my_checkpoint.pth.tar"), model, optimizer, scheduler)
+
+    check_accuracy(val_loader, model, MASK_LABELS, DEVICE)
+    save_validation_as_imgs(val_loader, folder = PREDICTIONS_DIR, device = DEVICE)
+
+    scaler = torch.cuda.amp.GradScaler()
+
+    stopping = EarlyStopping(patience = 15, wait = 20)
+
+    train_loop(
+        train_loader, 
+        val_loader, 
+        model, 
+        optimizer, 
+        scheduler, 
+        loss_fn, 
+        scaler, 
+        stopping
+    )
+    
 
 if __name__ == "__main__":
     main()

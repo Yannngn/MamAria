@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from utils import save_predictions_as_imgs
 
 class EarlyStopping:
 
@@ -48,7 +49,7 @@ class EarlyStopping:
         if epoch_score not in [-np.inf, np.inf, -np.nan, np.nan]:
 
             print(f"Validation score improved ({self.val_score} --> {epoch_score}). Saving model!")
-            
+
             torch.save(checkpoint, checkpoint_path)
 
         self.val_score = epoch_score
