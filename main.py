@@ -29,12 +29,12 @@ from utils import (
 torch.manual_seed(19)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 12
-PROJECT_NAME = "name"
+PROJECT_NAME = "test"
 PROJECT_TEAM = 'tail-upenn'
 SCHEDULER = True
 EARLYSTOP = True
 PIN_MEMORY = True
-LOAD_MODEL = False
+LOAD_MODEL = True
 SAVE_EVERY = 5
 # Hyperparameters
 
@@ -42,7 +42,7 @@ LEARNING_RATE = 3e-4
 BATCH_SIZE = 50
 NUM_EPOCHS = 1000
 DROPOUT = 0.0
-OPTIMIZER = 'adam'
+OPTIMIZER = 'Adam'
 MAX_LAYER_SIZE = 1024
 MIN_LAYER_SIZE = 64
 WEIGHTS = True

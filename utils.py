@@ -25,6 +25,7 @@ def load_checkpoint(checkpoint, model, optimizer, scheduler):
             optimizer.load_state_dict(checkpoint["optimizer"])
         if scheduler is not None:
             scheduler.load_state_dict(checkpoint["scheduler"])
+        return
     except KeyError:
         pass
     try:
