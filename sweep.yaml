@@ -1,0 +1,13 @@
+program: main.py
+method: grid
+metric:
+  name: val_loss
+  goal: minimize
+parameters:
+  max_layer_size:
+    values: [512,1024,2056]
+  min_layer_size: 
+    values: [64, 32, 16]
+  optimizer:
+    values: ["adam", "sgd"]
+  

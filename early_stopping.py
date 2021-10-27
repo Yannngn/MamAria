@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from utils import save_predictions_as_imgs
 
 class EarlyStopping:
 

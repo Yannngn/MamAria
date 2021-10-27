@@ -8,19 +8,19 @@ import torchvision.transforms.functional as TF
 
 class UNET(nn.Module):
     
-    def __init__(self, in_channels, classes, max_layer_size=1024, min_layer_size=64, dropout=0.0):
+    def __init__(self, in_channels, classes, config):
         super(UNET, self).__init__()
 
-        self.max_layer_size = max_layer_size
-        self.min_layer_size = min_layer_size
+        self.max_layer_size = config.max_layer_size
+        self.min_layer_size = config.min_layer_size
+        mls = config.max_layer_size 
         
-        layers = [in_channels, min_layer_size]
-        while(max_layer_size > min_layer_size):
-            layers.insert(2,max_layer_size)
-            max_layer_size = int(max_layer_size * .5)
+        layers = [in_channels, config.min_layer_size]
+        while(mls > config.min_layer_size):
+            layers.insert(2, mls)
+            mls = int(mls * .5)
         
         self.layers = layers
-        self.dropout = dropout
         
         self.double_conv_downs = nn.ModuleList(
             [self.__double_conv(layer, layer_n) for layer, layer_n in zip(self.layers[:-1], self.layers[1:])])
@@ -43,7 +43,6 @@ class UNET(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Dropout(self.dropout)
         )
         return conv
     

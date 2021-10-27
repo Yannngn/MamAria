@@ -1,4 +1,3 @@
-from torch._C import ErrorReport
 import wandb
 import os
 import torch
@@ -29,22 +28,21 @@ from utils import (
 torch.manual_seed(19)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 12
-PROJECT_NAME = "test"
+PROJECT_NAME = "sweep_segmentation_4285_50_42"
 PROJECT_TEAM = 'tail-upenn'
 SCHEDULER = True
 EARLYSTOP = True
 PIN_MEMORY = True
-LOAD_MODEL = True
+LOAD_MODEL = False
 SAVE_EVERY = 5
 # Hyperparameters
 
 LEARNING_RATE = 3e-4
 BATCH_SIZE = 50
 NUM_EPOCHS = 1000
-DROPOUT = 0.0
-OPTIMIZER = 'Adam'
-MAX_LAYER_SIZE = 1024
-MIN_LAYER_SIZE = 64
+OPTIMIZER = ['adam', 'sgd']
+MAX_LAYER_SIZE = [512, 1024, 2056]
+MIN_LAYER_SIZE = [64, 32, 16]
 WEIGHTS = True
 # Image Information
 
@@ -63,24 +61,10 @@ VAL_MASK_DIR = "data/val/mask/"
 PREDICTIONS_DIR = "data/predictions/"
 BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-#sweep_id = wandb.sweep('sweep_config.yaml', project=PROJECT_NAME)
+#sweep_id = wandb.sweep('i550m9xy', project=PROJECT_NAME)
 
-def train_fn(loader, model, optimizer, loss_fn, scaler):
+def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     loop = tqdm(loader)
-    
-    config_defaults = {
-        'epochs': NUM_EPOCHS,
-        'batch_size': BATCH_SIZE,
-        'learning_rate': LEARNING_RATE,
-    }
-
-    wandb.init(
-        project = PROJECT_NAME,
-        entity=PROJECT_TEAM,
-        #group='experiment-1',
-        config=config_defaults)
-
-    config = wandb.config
     closs = 0
 
     for _, (data, targets) in enumerate(loop):
@@ -128,13 +112,13 @@ def validate_fn(loader, model, loss_fn):
     
     return loss.item()
 
-def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping):
+def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, config):
     for epoch in range(NUM_EPOCHS):
         print('================================================================================================================================')
         print('BEGINNING EPOCH', epoch, ':')
         print('================================================================================================================================')        
 
-        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler)
+        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
 
         # save model
         checkpoint = {
@@ -187,6 +171,23 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
 
 def main():
 
+    config_defaults = {
+        'epochs': NUM_EPOCHS,
+        'batch_size': BATCH_SIZE,
+        'learning_rate': LEARNING_RATE,
+        'optimizer': OPTIMIZER,
+        'max_layer_size': MAX_LAYER_SIZE,
+        'min_layer_size': MIN_LAYER_SIZE
+    }
+
+    wandb.init(
+        project = PROJECT_NAME,
+        entity=PROJECT_TEAM,
+        #group='experiment-1',
+        config=config_defaults)
+
+    config = wandb.config
+
     train_transforms, val_transforms = A.Compose([ToTensorV2(),],), A.Compose([ToTensorV2(),],)
 
     train_loader, val_loader = get_loaders(
@@ -201,7 +202,7 @@ def main():
         PIN_MEMORY,
     )
 
-    model = UNET(in_channels = IMAGE_CHANNELS, classes = MASK_LABELS).to(DEVICE)
+    model = UNET(in_channels = IMAGE_CHANNELS, classes = MASK_LABELS, config = config).to(DEVICE)
 
     if WEIGHTS:
         weights = get_weights(TRAIN_MASK_DIR, MASK_LABELS, DEVICE)
@@ -209,12 +210,12 @@ def main():
     else:
         loss_fn = nn.CrossEntropyLoss()
     
-    if OPTIMIZER == 'Adam':
+    if config.optimizer == 'adam':
         optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    elif OPTIMIZER == 'SGD':
+    elif config.optimizer == 'sgd':
         optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
     else:
-        raise KeyError(f"optimizer {OPTIMIZER} not recognized.")
+        raise KeyError(f"optimizer {config.optimizer} not recognized.")
     
     if SCHEDULER:
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
@@ -237,9 +238,9 @@ def main():
         scheduler, 
         loss_fn, 
         scaler, 
-        stopping
+        stopping,
+        config
     )
-    
 
 if __name__ == "__main__":
     main()
