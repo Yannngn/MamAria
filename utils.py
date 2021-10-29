@@ -137,17 +137,17 @@ def print_and_save_results(n0, n1, lst, trainl, vall, time, folder=PREDICTIONS_D
     with open(folder+f'{time}_preds.csv','a') as fd:
         fd.write(';'.join(map(str, [l for l in lst])) + '\n')
 
-def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, device=DEVICE):
+def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving predictions as images")
     model.eval()
-    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #now = datetime.now().strftime("%Y%m%d_%H%M%S")
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
             preds_labels = torch.argmax(model(x), 1)
             preds_labels = label_to_pixel(preds_labels)
 
-            save_image(preds_labels, f"{folder}{now}_pred_e{epoch}_i{idx}.png")
+            save_image(preds_labels, f"{folder}{time}_pred_e{epoch}_i{idx}.png")
             
     model.train()
 

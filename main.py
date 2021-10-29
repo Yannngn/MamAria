@@ -28,22 +28,23 @@ from utils import (
 torch.manual_seed(19)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 12
-PROJECT_NAME = "sweep_segmentation_4285_50_42"
+PROJECT_NAME = "25_segmentation_4285_50_42"
 PROJECT_TEAM = 'tail-upenn'
 SCHEDULER = True
 EARLYSTOP = True
 PIN_MEMORY = True
 LOAD_MODEL = False
-SAVE_EVERY = 5
+
 # Hyperparameters
 
-LEARNING_RATE = 3e-4
-BATCH_SIZE = 50
+LEARNING_RATE = 1e-2 #[1. 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+BATCH_SIZE = 20
 NUM_EPOCHS = 1000
-OPTIMIZER = ['adam', 'sgd']
-MAX_LAYER_SIZE = [512, 1024, 2056]
-MIN_LAYER_SIZE = [64, 32, 16]
+OPTIMIZER = 'adam' #['adam']
+MAX_LAYER_SIZE = 1024 #[512, 1024, 2056]
+MIN_LAYER_SIZE = 64 #[64, 32, 16]
 WEIGHTS = True
+
 # Image Information
 
 IMAGE_HEIGHT = 256
@@ -61,11 +62,9 @@ VAL_MASK_DIR = "data/val/mask/"
 PREDICTIONS_DIR = "data/predictions/"
 BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-#sweep_id = wandb.sweep('i550m9xy', project=PROJECT_NAME)
-
 def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     loop = tqdm(loader)
-    closs = 0
+    # closs = 0
 
     for _, (data, targets) in enumerate(loop):
         data = data.to(device=DEVICE)
@@ -87,9 +86,9 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
 
         # wandb logging
         wandb.log({"batch loss":loss.item()})
-        closs += loss.item()
+    #     closs += loss.item()
     
-    wandb.log({"loss":closs/config.batch_size})
+    # wandb.log({"loss":closs/config.batch_size})
 
     return loss.item()
 
@@ -137,7 +136,8 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
         if SCHEDULER:
             scheduler.step(val_loss)
 
-        dict_log = {"val_loss":val_loss,
+        dict_log = {"epoch":epoch,
+                    "val_loss":val_loss,
                     "accuracy":metrics[0],
                     "label_0_accuracy":metrics[1][0],
                     "label_1_accuracy":metrics[1][1],
@@ -149,12 +149,15 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
                     "label_3_recall":metrics[2][3],
                    }
         
-        wandb.log(dict_log) 
+        
         print_and_save_results(accuracies[0], accuracies[1], metrics, train_loss, val_loss, BEGIN)
         
-        # Print predictions to folder   
-        if epoch % SAVE_EVERY == 0:
-            save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, device = DEVICE)
+        # Print predictions to folder
+        now = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_predictions_as_imgs(val_loader, model, epoch, folder = PREDICTIONS_DIR, time=now, device = DEVICE)
+        dict_log['prediction'] = wandb.Image(PREDICTIONS_DIR + f"{now}_pred_e{epoch}_i0.png")
+        
+        wandb.log(dict_log) 
         
         if EARLYSTOP:
             stopping(val_loss, checkpoint, checkpoint_path=f"checkpoints/{BEGIN}_best_checkpoint.pth.tar", epoch = epoch)

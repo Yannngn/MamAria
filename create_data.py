@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import itertools
 import random
 from PIL import Image
 from shutil import copyfile, rmtree
@@ -15,10 +16,16 @@ MSK_PATH = OUT + "mask/"
 TRAIN = OUT + "train/"
 VAL = OUT + "val/"
 
+# FILES = ["null_9_0000_00_00",
+#          "sphere_0_4285_50_42",
+#          "spiculated_1_4285_50_42",
+#          "spiculated_2_4285_50_42",
+#          "spiculated_3_4285_50_42"]
+
 FILES = ["null_9_0000_00_00",
-         "sphere_0_4285_50_02",
-         "spiculated_1_4285_50_02",
-         "spiculated_2_4285_50_02"]
+         "calc_4_5000_30_02",
+         "calc_5_5000_30_02",
+         "calc_6_5000_30_02"]
 
 #FILES = ['calc_4_5000_30_42']
 
@@ -98,30 +105,42 @@ def shuffle_train_val(path, train_dir, val_dir):
     mask_train = train_dir + 'mask/'
     phantom_val = val_dir + 'phantom/'
     mask_val = val_dir + 'mask/'
-
+    
     os.makedirs(phantom_train)
     os.makedirs(mask_train)
     os.makedirs(phantom_val)
     os.makedirs(mask_val)
-
+    
     img_files = [os.path.join(path, file) for file in os.listdir(phantom_orig) if file.endswith('.tiff')]
     img_names = [filepath_to_name(img) for img in img_files]
-    
+
+    # example 'null_9_Richards_0000_00_00_008-crop'
+
     lesions = np.unique(['_'.join(name.split('_')[:2]) for name in img_names])
-    
-    names_per_lesion = []
-    
-    for lesion in lesions:
-        names = [img for img in img_names if '_'.join(img.split('_')[:2]) == lesion]
-        names_per_lesion.append(names)
+    phantoms = np.unique(['_'.join([name.split('_')[2],name.split('_')[-1]]) for name in img_names])
 
-    val_names = set(random.choices(names_per_lesion[0], k=5)+
-                    random.choices(names_per_lesion[1], k=2)+
-                    random.choices(names_per_lesion[2], k=2)+
-                    random.choices(names_per_lesion[3], k=2))
+    names_per_index = []
 
-    train_names = set(img_names) - val_names
-   
+    for phantom in phantoms:
+        names = [img for img in img_names if (img.split('_')[2] == phantom.split('_')[0]) and (img.split('_')[-1] == phantom.split('_')[1])]
+        names_per_index.append(names)
+
+    a = len(names_per_index) - 1
+    b = len(lesions) - 1
+    c = int((a - b) / b)
+
+    names_per_index = random.sample(names_per_index[:-1], a)
+    names_per_index.append(['null_9_Stark_0000_00_00_000-crop'])
+    
+    train_sort = random.choices(np.array([[i]*c for i in range(1, b + 1)]).flatten(), k=a-b)
+    train_sort.append(0)
+    val_sort = list(range(b+1))
+    random.shuffle(val_sort)
+ 
+    train_names = [names[train_sort[n]] for n, names in enumerate(names_per_index[b:])]
+    
+    val_names = [names[val_sort[n]] for n, names in enumerate(names_per_index[:b+1])]
+
     for file in val_names:
         copyfile(phantom_orig + file + '.tiff', phantom_val + file + '.tiff')
         copyfile(mask_orig + file[:-5] + '_mask.png', mask_val + file[:-5] + '_mask.png')
@@ -138,3 +157,4 @@ def filepath_to_name(full_name):
 if __name__ == "__main__":
     main(get_slice = True, crop = True, delete = True, shuffle = True)
     # main(get_slice = True, crop = True)
+    # main(shuffle = True)
