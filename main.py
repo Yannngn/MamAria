@@ -28,7 +28,7 @@ from utils import (
 torch.manual_seed(19)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 12
-PROJECT_NAME = "25_segmentation_4285_50_42"
+PROJECT_NAME = "perlin_test_0"
 PROJECT_TEAM = 'tail-upenn'
 SCHEDULER = True
 EARLYSTOP = True
@@ -37,7 +37,7 @@ LOAD_MODEL = False
 
 # Hyperparameters
 
-LEARNING_RATE = 1e-2 #[1. 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+LEARNING_RATE = 3e-4 #[1. 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
 BATCH_SIZE = 20
 NUM_EPOCHS = 1000
 OPTIMIZER = 'adam' #['adam']
@@ -47,8 +47,8 @@ WEIGHTS = True
 
 # Image Information
 
-IMAGE_HEIGHT = 256
-IMAGE_WIDTH = 98
+IMAGE_HEIGHT = 512
+IMAGE_WIDTH = 301
 IMAGE_CHANNELS = 1
 MASK_CHANNELS = 1
 MASK_LABELS = 4
@@ -64,7 +64,7 @@ BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     loop = tqdm(loader)
-    # closs = 0
+    closs = 0
 
     for _, (data, targets) in enumerate(loop):
         data = data.to(device=DEVICE)
@@ -86,9 +86,9 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
 
         # wandb logging
         wandb.log({"batch loss":loss.item()})
-    #     closs += loss.item()
+        closs += loss.item()
     
-    # wandb.log({"loss":closs/config.batch_size})
+    wandb.log({"loss":closs/config.batch_size})
 
     return loss.item()
 

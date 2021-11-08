@@ -16,16 +16,16 @@ MSK_PATH = OUT + "mask/"
 TRAIN = OUT + "train/"
 VAL = OUT + "val/"
 
-# FILES = ["null_9_0000_00_00",
-#          "sphere_0_4285_50_42",
-#          "spiculated_1_4285_50_42",
-#          "spiculated_2_4285_50_42",
-#          "spiculated_3_4285_50_42"]
-
 FILES = ["null_9_0000_00_00",
-         "calc_4_5000_30_02",
-         "calc_5_5000_30_02",
-         "calc_6_5000_30_02"]
+         "sphere_0_4285_50_42",
+         "spiculated_1_4285_50_42",
+         "spiculated_2_4285_50_42",
+         "spiculated_3_4285_50_42"]
+
+# FILES = ["null_9_0000_00_00",
+#          "calc_4_5000_30_02",
+#          "calc_5_5000_30_02",
+#          "calc_6_5000_30_02"]
 
 #FILES = ['calc_4_5000_30_42']
 
@@ -132,12 +132,12 @@ def shuffle_train_val(path, train_dir, val_dir):
     names_per_index = random.sample(names_per_index[:-1], a)
     names_per_index.append(['null_9_Stark_0000_00_00_000-crop'])
     
-    train_sort = random.choices(np.array([[i]*c for i in range(1, b + 1)]).flatten(), k=a-b)
+    train_sort = random.choices(np.array([[i]*c for i in range(1, b)]).flatten(), k=a-b-1)
     train_sort.append(0)
     val_sort = list(range(b+1))
     random.shuffle(val_sort)
  
-    train_names = [names[train_sort[n]] for n, names in enumerate(names_per_index[b:])]
+    train_names = [names[train_sort[n]] for n, names in enumerate(names_per_index[b+1:])]
     
     val_names = [names[val_sort[n]] for n, names in enumerate(names_per_index[:b+1])]
 
