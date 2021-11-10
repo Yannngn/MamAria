@@ -44,9 +44,12 @@ def get_loaders(
     train_maskdir,
     val_dir,
     val_maskdir,
+    test_dir,
+    test_maskdir,
     batch_size,
     train_transform,
     val_transform,
+    test_transform,
     num_workers=4,
     pin_memory=True,
 ):
@@ -79,6 +82,23 @@ def get_loaders(
         shuffle=False,
     )
 
+    if test_dir is not None:
+        test_ds = PhantomDataset(
+            image_dir=test_dir,
+            mask_dir=test_maskdir,
+            transform=test_transform,
+        )
+
+        test_loader = DataLoader(
+            test_ds,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            shuffle=False,
+        )
+        
+        return train_loader, val_loader, test_loader
+    
     return train_loader, val_loader
 
 def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = CONFIG.HYPERPARAMETERS.MULTIPLIER):
@@ -131,7 +151,7 @@ def check_accuracy(loader, model, device=DEVICE):
 
     return num_correct, num_pixels, dict_eval
 
-def print_and_save_results(
+def log_predictions(
     num_correct, 
     num_pixels, 
     dict_eval, 
@@ -159,7 +179,36 @@ def print_and_save_results(
     if os.path.exists(img):
         dict_eval['prediction'] = wandb.Image(CONFIG.PATHS.PREDICTIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
         
-    wandb.log(dict_eval)  
+    wandb.log(dict_eval)
+
+def log_submission(
+    loader, model,
+    num_correct, num_pixels,
+    dict_subm, 
+    loss_test, 
+    epoch, idx, time=0, 
+    folder=CONFIG.PATHS.PREDICTIONS_DIR
+):
+
+    dict_subm['loss_val'] = loss_test
+
+    print(f"Got {num_correct} of {num_pixels} pixels;")
+    for key in dict_subm:
+        print (key,':', dict_subm[key])
+
+    with open(folder+f'{time}_preds.csv','a') as f:
+        w = csv.DictWriter(f, dict_subm.keys())
+        w.writeheader()
+        w.writerow(dict_subm)
+    
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_predictions_as_imgs(loader, model, epoch, time=now, folder=CONFIG.PATHS.SUBMISSIONS_DIR, device=DEVICE)
+
+    img = CONFIG.PATHS.SUBMISSIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png"
+    if os.path.exists(img):
+        dict_subm['prediction'] = wandb.Image(CONFIG.PATHS.SUBMISSIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
+        
+    wandb.log(dict_subm)
 
 def save_predictions_as_imgs(loader, model, epoch, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving predictions as images")
@@ -175,16 +224,14 @@ def save_predictions_as_imgs(loader, model, epoch, folder=CONFIG.PATHS.PREDICTIO
             
     model.train()
 
-def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, device=DEVICE):
+def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving predictions as images")
 
     for idx, (_, y) in enumerate(loader):
         y = y.to(device)
         val = (y / y.max()).unsqueeze(1)
-
-        now = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        save_image(val, f"{folder}{now}_val_i{idx}.png")
+        save_image(val, f"{folder}{time}_val_i{idx}.png")
         
 def label_to_pixel(preds, col='l'):
     if col == 'l':

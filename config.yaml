@@ -31,4 +31,7 @@ PATHS:
   TRAIN_MASK_DIR: "data/train/mask/"
   VAL_IMG_DIR: "data/val/phantom/"
   VAL_MASK_DIR: "data/val/mask/"
+  TEST_IMG_DIR: "data/test/phantom/"
+  TEST_MASK_DIR: "data/test/mask/"
   PREDICTIONS_DIR: "data/predictions/"
+  SUBMISSIONS_DIR: "data/submissions/"
