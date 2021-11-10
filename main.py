@@ -55,12 +55,12 @@ def main():
     else:
         loss_fn = nn.CrossEntropyLoss()
     
-    if config.optimizer == 'adam':
+    if config.OPTIMIZER == 'adam':
         optimizer = optim.Adam(model.parameters(), lr=CONFIG.HYPERPARAMETERS.LEARNING_RATE)
-    elif config.optimizer == 'sgd':
+    elif config.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(model.parameters(), lr=CONFIG.HYPERPARAMETERS.LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
     else:
-        raise KeyError(f"optimizer {config.optimizer} not recognized.")
+        raise KeyError(f"optimizer {config.OPTIMIZER} not recognized.")
     
     if CONFIG.PROJECT.SCHEDULER:
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
@@ -70,7 +70,7 @@ def main():
         load_epoch = load_checkpoint(torch.load("my_checkpoint.pth.tar"), model, optimizer, scheduler)
 
     #check_accuracy(val_loader, model, DEVICE)
-    save_validation_as_imgs(val_loader, folder = CONFIG.PATHS.PREDICTIONS_DIR, time = BEGIN, device = DEVICE)
+    save_validation_as_imgs(val_loader, folder = CONFIG.PATHS.PREDICTIONS_DIR, device = DEVICE)
 
     scaler = torch.cuda.amp.GradScaler()
 

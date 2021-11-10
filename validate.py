@@ -1,4 +1,5 @@
-import tqdm, torch
+import torch
+from tqdm import tqdm
 from datetime import datetime
 from munch import munchify
 from yaml import safe_load

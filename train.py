@@ -1,4 +1,5 @@
-import torch, tqdm, wandb
+import torch, wandb
+from tqdm import tqdm
 from munch import munchify
 from yaml import safe_load
 
@@ -35,7 +36,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
         wandb.log({"batch loss":loss.item()})
         closs += loss.item()
     
-    wandb.log({"loss":closs/config.batch_size})
+    wandb.log({"loss":closs/config.BATCH_SIZE})
 
     return idx, loss.item()
 
