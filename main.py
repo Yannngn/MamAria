@@ -86,7 +86,8 @@ def main():
         scaler, 
         stopping,
         config,
-        load_epoch
+        load_epoch,
+        time = BEGIN
     )
 
 if __name__ == "__main__":

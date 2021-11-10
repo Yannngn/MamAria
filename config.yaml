@@ -1,5 +1,5 @@
 PROJECT:
-  NUM_WORKERS: 12
+  NUM_WORKERS: 6
   PROJECT_NAME: "testing_yaml"
   PROJECT_TEAM: 'tail-upenn'
   SCHEDULER: True

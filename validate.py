@@ -10,7 +10,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 with open('config.yaml') as f:
     CONFIG = munchify(safe_load(f))
 
-def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, idx):
+def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, idx, time):
     loop = tqdm(val_loader)
     model.eval()
     
@@ -30,7 +30,7 @@ def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, idx):
         if CONFIG.PROJECT.SCHEDULER:
             scheduler.step(loss.item())
         
-        print_and_save_results(num_correct, num_pixels, metrics, train_loss, loss.item(), epoch, idx)
+        print_and_save_results(num_correct, num_pixels, metrics, train_loss, loss.item(), epoch, idx, time=time)
         
         # Print predictions to folder
         now = datetime.now().strftime("%Y%m%d_%H%M%S")

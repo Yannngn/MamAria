@@ -148,14 +148,16 @@ def print_and_save_results(
 
     print(f"Got {num_correct} of {num_pixels} pixels;")
     for key in dict_eval:
-        print (key,':', dict_eval[key].item(),';')
+        print (key,':', dict_eval[key])
 
-    with (folder+f'{time}_preds.csv','a') as f:
+    with open(folder+f'{time}_preds.csv','a') as f:
         w = csv.DictWriter(f, dict_eval.keys())
         w.writeheader()
         w.writerow(dict_eval)
-    
-    dict_eval['prediction'] = wandb.Image(CONFIG.PATHS.PREDICTIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
+    #                                                                       20211110_162445_val_i0
+    img = CONFIG.PATHS.PREDICTIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png"
+    if os.path.exists(img):
+        dict_eval['prediction'] = wandb.Image(CONFIG.PATHS.PREDICTIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
         
     wandb.log(dict_eval)  
 
