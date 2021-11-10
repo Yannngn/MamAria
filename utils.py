@@ -152,9 +152,8 @@ def check_accuracy(loader, model, device=DEVICE):
     return num_correct, num_pixels, dict_eval
 
 def log_predictions(
-    num_correct, 
-    num_pixels, 
-    dict_eval, 
+    val_loader, 
+    model,
     loss_train, 
     loss_val, 
     epoch, 
@@ -162,6 +161,7 @@ def log_predictions(
     time=0, 
     folder=CONFIG.PATHS.PREDICTIONS_DIR
 ):
+    num_correct, num_pixels, dict_eval = check_accuracy(val_loader, model, DEVICE)
 
     dict_eval['loss_train'] = loss_train
     dict_eval['loss_val'] = loss_val
@@ -183,13 +183,11 @@ def log_predictions(
 
 def log_submission(
     loader, model,
-    num_correct, num_pixels,
-    dict_subm, 
     loss_test, 
     epoch, idx, time=0, 
     folder=CONFIG.PATHS.PREDICTIONS_DIR
 ):
-
+    num_correct, num_pixels, dict_subm = check_accuracy(loader, model, DEVICE)
     dict_subm['loss_val'] = loss_test
 
     print(f"Got {num_correct} of {num_pixels} pixels;")
@@ -206,13 +204,12 @@ def log_submission(
 
     img = CONFIG.PATHS.SUBMISSIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png"
     if os.path.exists(img):
-        dict_subm['prediction'] = wandb.Image(CONFIG.PATHS.SUBMISSIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
+        dict_subm['submission'] = wandb.Image(CONFIG.PATHS.SUBMISSIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
         
     wandb.log(dict_subm)
 
 def save_predictions_as_imgs(loader, model, epoch, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
-    print("=> Saving predictions as images")
-    
+
     model.eval()
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):

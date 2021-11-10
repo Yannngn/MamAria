@@ -69,8 +69,6 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
             if stopping.early_stop:
                 print("Early Stopping ...")
                 save_predictions_as_imgs(val_loader, model, epoch, folder = CONFIG.PATHS.PREDICTIONS_DIR, device = DEVICE)
-                wandb.finish()
                 break
-    
-    wandb.finish()
+
     print("Training Finished")

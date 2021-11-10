@@ -14,7 +14,7 @@ from yaml import safe_load
 
 from model import UNET
 from early_stopping import EarlyStopping
-from utils import load_checkpoint, get_loaders, save_validation_as_imgs, get_weights
+from utils import get_weights, get_loaders, load_checkpoint, save_validation_as_imgs
 from train import train_loop
 from predict import predict_fn
 
@@ -99,7 +99,6 @@ def main():
         test_loader,
         model,
         loss_fn,
-        config,
         time = BEGIN
     )
 
