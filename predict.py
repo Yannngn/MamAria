@@ -41,7 +41,7 @@ def predict_fn(test_loader, model, loss_fn, time):
         # update tqdm loop
         loop.set_postfix(loss=loss.item())
         
-        log_submission(test_loader, model, loss.item(), epoch, idx, time=time)
+    log_submission(test_loader, model, loss.item(), epoch, idx, time=time)
 
     model.train()
         
