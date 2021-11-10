@@ -1,0 +1,34 @@
+PROJECT:
+  NUM_WORKERS: 12
+  PROJECT_NAME: "testing_yaml"
+  PROJECT_TEAM: 'tail-upenn'
+  SCHEDULER: True
+  EARLYSTOP: True
+  PIN_MEMORY: True
+  LOAD_MODEL: False
+
+HYPERPARAMETERS:
+  LEARNING_RATE: 3e-4
+  BATCH_SIZE: 14
+  NUM_EPOCHS: 200
+  OPTIMIZER: 'adam'
+  MAX_LAYER_SIZE: 1024
+  MIN_LAYER_SIZE: 64
+  WEIGHTS: True
+  MULTIPLIER: [1,1,2,1]
+
+IMAGE:
+  IMAGE_HEIGHT: 512
+  IMAGE_WIDTH: 301
+  IMAGE_CHANNELS: 1
+  MASK_CHANNELS: 1
+  MASK_LABELS: 4
+  PHANTOM_FORMAT: 'tiff'
+  MASK_FORMAT: 'png'
+
+PATHS:
+  TRAIN_IMG_DIR: "data/train/phantom/"
+  TRAIN_MASK_DIR: "data/train/mask/"
+  VAL_IMG_DIR: "data/val/phantom/"
+  VAL_MASK_DIR: "data/val/mask/"
+  PREDICTIONS_DIR: "data/predictions/"

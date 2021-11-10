@@ -2,16 +2,21 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from cv2 import imread
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import precision_score, recall_score
 
 import os
+import csv
 import numpy as np
+from yaml import safe_load
+from munch import munchify
+import wandb
 from datetime import datetime
 
 from dataset import PhantomDataset
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-PREDICTIONS_DIR = "data/predictions/"
+with open('config.yaml') as f:
+    CONFIG = munchify(safe_load(f))
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -32,6 +37,7 @@ def load_checkpoint(checkpoint, model, optimizer, scheduler):
         model.load_state_dict(checkpoint)
     except KeyError as e:
         raise ValueError(f'Key {e} is different from expected "state_dict"')
+    return checkpoint["epoch"]
 
 def get_loaders(
     train_dir,
@@ -75,7 +81,7 @@ def get_loaders(
 
     return train_loader, val_loader
 
-def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = [1, 1, 1, 1]):
+def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = CONFIG.HYPERPARAMETERS.MULTIPLIER):
     weights = np.zeros(num_labels)
     multiplier = np.array(multiplier)
     total_pixels = 0
@@ -98,7 +104,7 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = [1, 1, 1, 1]):
 
     return torch.tensor(out).float().to(device)
 
-def check_accuracy(loader, model, num_labels, device=DEVICE):
+def check_accuracy(loader, model, device=DEVICE):
     num_correct = 0
     num_pixels = 0
     
@@ -119,28 +125,44 @@ def check_accuracy(loader, model, num_labels, device=DEVICE):
             y = y.to('cpu').numpy()
             preds_labels = preds_labels.to('cpu').numpy()
 
-            acc = evaluate_segmentation(preds_labels, y, num_labels, score_averaging = None)
+            dict_eval = evaluate_segmentation(preds_labels, y, score_averaging = None)
 
     model.train()
 
-    return [num_correct, num_pixels, acc]
+    return num_correct, num_pixels, dict_eval
 
-def print_and_save_results(n0, n1, lst, trainl, vall, time, folder=PREDICTIONS_DIR):
-    lst.append(trainl)
-    lst.append(vall)
-    print(f"Got {n0}/{n1} with Global Accuracy: {lst[0] * 100:.4f}%",
-          f"\nClasses Accuracy: {lst[1]}",
-          f"\nRecall: {lst[3]}",
-          f"\nTrain Loss: {lst[6]}",
-          f"\nVal Loss: {lst[7]}")
+def print_and_save_results(
+    num_correct, 
+    num_pixels, 
+    dict_eval, 
+    loss_train, 
+    loss_val, 
+    epoch, 
+    idx, 
+    time=0, 
+    folder=CONFIG.PATHS.PREDICTIONS_DIR
+):
+
+    dict_eval['loss_train'] = loss_train
+    dict_eval['loss_val'] = loss_val
+
+    print(f"Got {num_correct} of {num_pixels} pixels;")
+    for key in dict_eval:
+        print (key,':', dict_eval[key].item(),';')
+
+    with (folder+f'{time}_preds.csv','a') as f:
+        w = csv.DictWriter(f, dict_eval.keys())
+        w.writeheader()
+        w.writerow(dict_eval)
     
-    with open(folder+f'{time}_preds.csv','a') as fd:
-        fd.write(';'.join(map(str, [l for l in lst])) + '\n')
+    dict_eval['prediction'] = wandb.Image(CONFIG.PATHS.PREDICTIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
+        
+    wandb.log(dict_eval)  
 
-def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, time=0, device=DEVICE):
+def save_predictions_as_imgs(loader, model, epoch, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving predictions as images")
+    
     model.eval()
-    #now = datetime.now().strftime("%Y%m%d_%H%M%S")
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
@@ -151,7 +173,7 @@ def save_predictions_as_imgs(loader, model, epoch, folder=PREDICTIONS_DIR, time=
             
     model.train()
 
-def save_validation_as_imgs(loader, folder=PREDICTIONS_DIR, device=DEVICE):
+def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, device=DEVICE):
     print("=> Saving predictions as images")
 
     for idx, (_, y) in enumerate(loader):
@@ -223,17 +245,24 @@ def compute_mean_iou(pred, label, mean=False):
 
     return out
 
-def evaluate_segmentation(pred, label, num_classes, score_averaging=None):
+def evaluate_segmentation(pred, label, score_averaging=None):
     flat_pred = pred.flatten()
     flat_label = label.flatten()
 
     global_accuracy = compute_global_accuracy(flat_pred, flat_label)
-    class_accuracies = compute_class_accuracies(flat_pred, flat_label, num_classes)
 
     prec = precision_score(flat_pred, flat_label, average=score_averaging)
     rec = recall_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
-    f1 = f1_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
+ 
+    dict_eval = {"accuracy":global_accuracy,
+                 "accuracy_label_0":prec[0],
+                 "accuracy_label_1":prec[1],
+                 "accuracy_label_2":prec[2],
+                 "accuracy_label_3":prec[3],
+                 "recall_label_0":rec[0],
+                 "recall_label_1":rec[1],
+                 "recall_label_2":rec[2],
+                 "recall_label_3":rec[3],
+                }
 
-    iou = compute_mean_iou(flat_pred, flat_label)
-
-    return [global_accuracy, np.array(class_accuracies), np.array(prec), np.array(rec), np.array(f1), np.array(iou)]
+    return dict_eval

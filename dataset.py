@@ -17,7 +17,7 @@ class PhantomDataset(Dataset):
     def __getitem__(self, index):
         # Get Image and corresponding Mask paths
         img_path = os.path.join(self.image_dir, self.images[index])
-        mask_path = os.path.join(self.mask_dir, self.images[index].replace("-crop.tiff", "_mask.png"))
+        mask_path = os.path.join(self.mask_dir, self.images[index].replace(".tiff", "_mask.png"))
 
         # Convert Image and Mask to numpy
         image = np.array(Image.open(img_path), dtype=np.float32)

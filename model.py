@@ -11,12 +11,12 @@ class UNET(nn.Module):
     def __init__(self, in_channels, classes, config):
         super(UNET, self).__init__()
 
-        self.max_layer_size = config.max_layer_size
-        self.min_layer_size = config.min_layer_size
-        mls = config.max_layer_size 
+        self.max_layer_size = config.MAX_LAYER_SIZE
+        self.min_layer_size = config.MIN_LAYER_SIZE
+        mls = config.MAX_LAYER_SIZE 
         
-        layers = [in_channels, config.min_layer_size]
-        while(mls > config.min_layer_size):
+        layers = [in_channels, config.MIN_LAYER_SIZE]
+        while(mls > config.MIN_LAYER_SIZE):
             layers.insert(2, mls)
             mls = int(mls * .5)
         
