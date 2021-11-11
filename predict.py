@@ -15,7 +15,7 @@ PATH = os.path.dirname(__file__)
 def predict_fn(test_loader, model, loss_fn, time):
     loop = tqdm(test_loader)
     
-    epoch = load_checkpoint(torch.load(PATH+f"/data/checkpoints/{time}_best_checkpoint.pth.tar"), model, optimizer=None, scheduler=None)
+    load_checkpoint(torch.load(PATH+f"/data/checkpoints/{time}_best_checkpoint.pth.tar"), model, optimizer=None, scheduler=None)
 
     model.eval()
     

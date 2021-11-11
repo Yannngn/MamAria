@@ -220,7 +220,7 @@ def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMIS
             preds_labels = torch.argmax(model(x), 1)
             preds_labels = label_to_pixel(preds_labels)
             img = folder + f"{time}_submission_i{idx}.png"
-            save_image(preds_labels, dict_subm, img)
+            save_image(preds_labels, img)
             dict_subm[f'submission_i{idx}'] = wandb.Image(img)
             
     wandb.log(dict_subm)
