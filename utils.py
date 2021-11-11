@@ -119,9 +119,9 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = CONFIG.HYPERPA
             temp.append((mask == i).sum())
         
         weights += temp
-        den = weights / (total_pixels * len(mask))
-        out = np.divide(multiplier, den, out = np.zeros_like(multiplier, dtype = float), where = den!=0)
-
+    den = weights / (total_pixels * len(mask))
+    out = np.divide(multiplier, den, out = np.zeros_like(multiplier, dtype = float), where = den!=0)
+    print(out)
     return torch.tensor(out).float().to(device)
 
 def check_accuracy(loader, model, device=DEVICE):
@@ -157,11 +157,11 @@ def log_predictions(
     loss_train, 
     loss_val, 
     epoch, 
-    idx, 
     time=0, 
-    folder=CONFIG.PATHS.PREDICTIONS_DIR
+    folder=CONFIG.PATHS.PREDICTIONS_DIR,
+    device=DEVICE
 ):
-    num_correct, num_pixels, dict_eval = check_accuracy(val_loader, model, DEVICE)
+    num_correct, num_pixels, dict_eval = check_accuracy(val_loader, model, device)
 
     dict_eval['loss_train'] = loss_train
     dict_eval['loss_val'] = loss_val
@@ -174,62 +174,69 @@ def log_predictions(
         w = csv.DictWriter(f, dict_eval.keys())
         w.writeheader()
         w.writerow(dict_eval)
-    #                                                                       20211110_162445_val_i0
-    img = CONFIG.PATHS.PREDICTIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png"
-    if os.path.exists(img):
-        dict_eval['prediction'] = wandb.Image(CONFIG.PATHS.PREDICTIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
-        
-    wandb.log(dict_eval)
+    
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_predictions_as_imgs(val_loader, model, epoch, dict_eval, time=now, folder=CONFIG.PATHS.PREDICTIONS_DIR, device=device)
 
-def log_submission(
-    loader, model,
-    loss_test, 
-    epoch, idx, time=0, 
-    folder=CONFIG.PATHS.PREDICTIONS_DIR
-):
-    num_correct, num_pixels, dict_subm = check_accuracy(loader, model, DEVICE)
+def log_submission(loader, model, loss_test, time=0, folder=CONFIG.PATHS.PREDICTIONS_DIR, device = DEVICE):
+    num_correct, num_pixels, dict_subm = check_accuracy(loader, model, device)
     dict_subm['loss_val'] = loss_test
 
     print(f"Got {num_correct} of {num_pixels} pixels;")
     for key in dict_subm:
         print (key,':', dict_subm[key])
 
-    with open(folder+f'{time}_preds.csv','a') as f:
+    with open(folder+f'{time}_submission.csv','a') as f:
         w = csv.DictWriter(f, dict_subm.keys())
         w.writeheader()
         w.writerow(dict_subm)
     
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
-    save_predictions_as_imgs(loader, model, epoch, time=now, folder=CONFIG.PATHS.SUBMISSIONS_DIR, device=DEVICE)
+    save_submission_as_imgs(loader, model, dict_subm, time=now, folder=CONFIG.PATHS.SUBMISSIONS_DIR, device=device)
 
-    img = CONFIG.PATHS.SUBMISSIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png"
-    if os.path.exists(img):
-        dict_subm['submission'] = wandb.Image(CONFIG.PATHS.SUBMISSIONS_DIR + f"{time}_pred_e{epoch}_i{idx}.png")
-        
-    wandb.log(dict_subm)
-
-def save_predictions_as_imgs(loader, model, epoch, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
-
+def save_predictions_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
+    print("=> Saving predictions as images ...")
+    
     model.eval()
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
             preds_labels = torch.argmax(model(x), 1)
             preds_labels = label_to_pixel(preds_labels)
-
-            save_image(preds_labels, f"{folder}{time}_pred_e{epoch}_i{idx}.png")
+            img = folder + f"{time}_pred_e{epoch}_i{idx}.png"
+            save_image(preds_labels, img)
+            dict_eval[f'prediction_i{idx}'] = wandb.Image(img)
             
     model.train()
+    wandb.log(dict_eval)
+
+def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMISSIONS_DIR, time=0, device=DEVICE):
+    print("=> Saving submission images ...")
+    
+    model.eval()
+    with torch.no_grad():    
+        for idx, (x, _) in enumerate(loader):
+            x = x.to(device)
+            preds_labels = torch.argmax(model(x), 1)
+            preds_labels = label_to_pixel(preds_labels)
+            img = folder + f"{time}_submission_i{idx}.png"
+            save_image(preds_labels, dict_subm, img)
+            dict_subm[f'submission_i{idx}'] = wandb.Image(img)
+            
+    wandb.log(dict_subm)
 
 def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
-    print("=> Saving predictions as images")
+    print("=> Saving validation images ...")
 
     for idx, (_, y) in enumerate(loader):
         y = y.to(device)
         val = (y / y.max()).unsqueeze(1)
-        
-        save_image(val, f"{folder}{time}_val_i{idx}.png")
-        
+        img = f"{folder}{time}_val_i{idx}.png"
+        save_image(val, img)
+        dict_val = {f'validation_i{idx}':wandb.Image(img)}
+    
+    wandb.log(dict_val)
+
 def label_to_pixel(preds, col='l'):
     if col == 'l':
         preds = preds / 3

@@ -10,13 +10,13 @@ with open('config.yaml') as f:
 PATH = os.path. dirname(__file__)
 
 from validate import validate_fn
-from utils import save_predictions_as_imgs, save_checkpoint
+from utils import log_predictions, save_checkpoint
 
 def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     loop = tqdm(loader)
     closs = 0
 
-    for idx, (data, targets) in enumerate(loop):
+    for _, (data, targets) in enumerate(loop):
         data = data.to(device=DEVICE)
         targets = targets.long().to(device=DEVICE)
         
@@ -40,7 +40,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     
     wandb.log({"loss":closs/config.BATCH_SIZE})
 
-    return idx, loss.item()
+    return loss.item()
 
 def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, config, load_epoch=0, time=0):
     for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.NUM_EPOCHS):
@@ -48,7 +48,7 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
         print('BEGINNING EPOCH', epoch, ':')
         print('================================================================================================================================')        
 
-        idx, train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
+        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
 
         # save model
         checkpoint = {
@@ -58,17 +58,19 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
             "scheduler": scheduler.state_dict(),
         }
 
+        print("Saving checkpoint ...")
         save_checkpoint(checkpoint)
 
         # check accuracy
-        val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, idx, time)
+        print("Validating results ...")
+        val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time)
 
         if CONFIG.PROJECT.EARLYSTOP:
             stopping(val_loss, checkpoint, checkpoint_path=PATH+f"/data/checkpoints/{time}_best_checkpoint.pth.tar", epoch = epoch)
             
             if stopping.early_stop:
                 print("Early Stopping ...")
-                save_predictions_as_imgs(val_loader, model, epoch, folder = CONFIG.PATHS.PREDICTIONS_DIR, device = DEVICE)
+                log_predictions(val_loader, model, train_loss, val_loss, epoch, time, device = DEVICE)
                 break
 
     print("Training Finished")
