@@ -46,7 +46,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
 def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, config, load_epoch=0, time=0):
     #check_accuracy(train_loader, model, device=DEVICE)
     
-    for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.NUM_EPOCHS):
+    for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.MAX_NUM_EPOCHS):
         print('================================================================================================================================')
         print('BEGINNING EPOCH', epoch, ':')
         print('================================================================================================================================')        
@@ -63,10 +63,11 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
 
         print("Saving checkpoint ...")
         save_checkpoint(checkpoint)
-        
+
         # check accuracy
         print("Validating results ...")
         val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time)
+
 
         if CONFIG.PROJECT.EARLYSTOP:
             stopping(val_loss, checkpoint, checkpoint_path=PATH+f"/data/checkpoints/{time}_best_checkpoint.pth.tar", epoch = epoch)

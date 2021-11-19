@@ -136,6 +136,7 @@ def check_accuracy(loader, model, device=DEVICE):
 def log_predictions(val_loader, model, loss_train, loss_val, epoch, time=0, folder=CONFIG.PATHS.PREDICTIONS_DIR, device=DEVICE):
     num_correct, num_pixels, dict_eval  = check_accuracy(val_loader, model, device)
 
+    dict_eval['epoch'] = epoch
     dict_eval['loss_train'] = loss_train
     dict_eval['loss_val'] = loss_val
 
@@ -146,7 +147,6 @@ def log_predictions(val_loader, model, loss_train, loss_val, epoch, time=0, fold
     file_exists = os.path.isfile(folder+f'{time}_preds.csv')
     with open(folder+f'{time}_preds.csv','a') as f:
         w = csv.DictWriter(f, dict_eval.keys())
-        
         
         if not file_exists:
             w.writeheader()
@@ -299,7 +299,7 @@ def roc_auc_multilabel(y_pred,y_true):
 
     return roc
 
-def roc_curve_multilabel(y_pred,y_true):
+def roc_curve_multilabel(y_pred:torch.tensor,y_true:torch.tensor)->list:
     num_labels = len(y_true.unique())
     roc=[]
     y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
@@ -309,8 +309,7 @@ def roc_curve_multilabel(y_pred,y_true):
         temp_true[y_true == index] = 1
         temp_pred = np.zeros_like(y_pred)
         temp_pred[y_pred == index] = 1
-        roc.append(list(roc_curve(temp_true, temp_pred))[:2])
-
+        roc.append(list(roc_curve(temp_true, temp_pred)))
     return roc
 
 def macro_roc_curve(lst:list)->tuple[np.array, np.array, float]:
@@ -388,6 +387,7 @@ def evaluate_segmentation(pred, label, score_averaging=None):
         dict_eval[f'auc_label_{i}'] = auc[i]
         dict_eval[f'fpr_label_{i}'] = curve[i][0]
         dict_eval[f'tpr_label_{i}'] = curve[i][1]
+        dict_eval[f'thresholds_label_{i}'] = curve[i][2]
         dict_eval[f'dice_label_{i}'] = dice[i]
 
     return dict_eval

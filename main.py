@@ -18,7 +18,7 @@ from utils import load_checkpoint, get_loaders, save_validation_as_imgs, get_wei
 from train import train_loop
 from loss import TverskyLoss
 
-#os.environ['WANDB_MODE'] = 'offline'
+os.environ['WANDB_MODE'] = 'offline'
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PARENT_DIR = os.path.abspath(__file__)
 BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -38,7 +38,7 @@ def main():
     val_transforms = A.Compose([ToTensorV2(),],)
 
     test_transforms = A.Compose([ToTensorV2(),],)
-    train_loader, val_loader, test_loader = get_loaders(CONFIG.PATHS.TRAIN_IMG_DIR,
+    train_loader, val_loader, _ = get_loaders(CONFIG.PATHS.TRAIN_IMG_DIR,
                                                         CONFIG.PATHS.TRAIN_MASK_DIR,
                                                         CONFIG.PATHS.VAL_IMG_DIR,
                                                         CONFIG.PATHS.VAL_MASK_DIR,
