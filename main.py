@@ -2,7 +2,6 @@ import wandb
 import os
 import torch
 import torch.nn as nn
-import torchgeometry as tgm
 import torch.optim as optim
 
 import albumentations as A
@@ -19,9 +18,8 @@ from utils import load_checkpoint, get_loaders, save_validation_as_imgs, get_wei
 from train import train_loop
 from predict import predict_fn
 from loss import TverskyLoss
-from summary import summary
-import pytorch_model_summary as pms
 
+os.environ['WANDB_MODE'] = 'offline'
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PARENT_DIR = os.path.abspath(__file__)
 BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -57,15 +55,12 @@ def main():
 
     model = UNET(in_channels = CONFIG.IMAGE.IMAGE_CHANNELS, classes = CONFIG.IMAGE.MASK_LABELS, config = config).to(DEVICE)
     model = nn.DataParallel(model)
-    #print(model)
-
 
     if config.WEIGHTS is not None:
         weights = get_weights(CONFIG.PATHS.TRAIN_MASK_DIR, 
                               CONFIG.IMAGE.MASK_LABELS, 
                               multiplier=config.MULTIPLIER,
-                              device=DEVICE
-                              )
+                              device=DEVICE)
 
     else:
         weights = None
@@ -73,7 +68,7 @@ def main():
     if config.LOSS_FUNCTION == "crossentropy":
         loss_fn = nn.CrossEntropyLoss(weight = weights)
     elif config.LOSS_FUNCTION == "tversky":
-        loss_fn = TverskyLoss(alpha=0.5, beta=0.5, weights=weights)
+        loss_fn = TverskyLoss(alpha=0.5, beta=0.5, weight=weights)
     else:
         raise KeyError(f"loss function {config.LOSS_FUNCTION} not recognized.")
     

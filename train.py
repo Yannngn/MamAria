@@ -10,7 +10,7 @@ with open('config.yaml') as f:
 PATH = os.path. dirname(__file__)
 
 from validate import validate_fn
-from utils import log_predictions, save_checkpoint
+from utils import log_predictions, save_checkpoint, check_accuracy
 
 def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     loop = tqdm(loader)
@@ -44,6 +44,8 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     return loss.item()
 
 def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, config, load_epoch=0, time=0):
+    #check_accuracy(train_loader, model, device=DEVICE)
+    
     for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.NUM_EPOCHS):
         print('================================================================================================================================')
         print('BEGINNING EPOCH', epoch, ':')

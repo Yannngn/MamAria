@@ -13,7 +13,7 @@ def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time):
     loop = tqdm(val_loader)
     model.eval()
     
-    for idx, (data, targets) in enumerate(loop):
+    for _, (data, targets) in enumerate(loop):
         data = data.to(DEVICE)
         targets = targets.long().to(DEVICE)
 

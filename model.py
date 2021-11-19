@@ -8,7 +8,7 @@ import torchvision.transforms.functional as TF
 
 class UNET(nn.Module):
     
-    def __init__(self, in_channels, classes, config):
+    def __init__(self, in_channels:int, classes:int, config):
         super(UNET, self).__init__()
 
         self.max_layer_size = config.MAX_LAYER_SIZE
