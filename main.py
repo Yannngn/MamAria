@@ -16,10 +16,9 @@ from model import UNET
 from early_stopping import EarlyStopping
 from utils import load_checkpoint, get_loaders, save_validation_as_imgs, get_weights
 from train import train_loop
-from predict import predict_fn
 from loss import TverskyLoss
 
-os.environ['WANDB_MODE'] = 'offline'
+#os.environ['WANDB_MODE'] = 'offline'
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PARENT_DIR = os.path.abspath(__file__)
 BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -93,7 +92,7 @@ def main():
 
     scaler = torch.cuda.amp.GradScaler()
 
-    stopping = EarlyStopping(patience=15, wait=50)
+    stopping = EarlyStopping(patience=10, wait=50)
     
     save_validation_as_imgs(val_loader, time = BEGIN)
 
@@ -108,15 +107,6 @@ def main():
         stopping,
         config,
         load_epoch,
-        time = BEGIN
-    )
-
-    save_test_as_imgs(test_loader, time=BEGIN)
-
-    predict_fn(
-        test_loader,
-        model,
-        loss_fn,
         time = BEGIN
     )
 

@@ -1,9 +1,8 @@
 import torch
-import torch.functional as F
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from cv2 import imread
-from sklearn.metrics import precision_score, recall_score, roc_auc_score
+from sklearn.metrics import precision_score, recall_score, roc_auc_score, roc_curve, auc
 
 import os
 import csv
@@ -143,10 +142,11 @@ def log_predictions(val_loader, model, loss_train, loss_val, epoch, time=0, fold
     print(f"Got {num_correct} of {num_pixels} pixels;")
     for key in dict_eval:
         print (key,':', dict_eval[key])
-
+    
+    file_exists = os.path.isfile(folder+f'{time}_preds.csv')
     with open(folder+f'{time}_preds.csv','a') as f:
         w = csv.DictWriter(f, dict_eval.keys())
-        file_exists = os.path.isfile(f)
+        
         
         if not file_exists:
             w.writeheader()
@@ -200,9 +200,12 @@ def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMIS
             x = x.to(device)
             preds_labels = torch.argmax(model(x), 1)
             preds_labels = label_to_pixel(preds_labels)
-            img = folder + f"{time}_submission_i{idx}.png"
-            save_image(preds_labels, img)
-            dict_subm[f'submission_i{idx}'] = wandb.Image(img)
+            
+            #save_image(preds_labels, img)
+            for j in range(preds_labels.size(0)):
+                img = folder + f"{time}_submission_i{idx:02d}_p{j:02d}.png"
+                save_image(preds_labels[j, :, :, :], img)
+                dict_subm[f'submission_i{idx:02d}_p{j:02d}'] = wandb.Image(img)
             
     wandb.log(dict_subm)
 
@@ -214,9 +217,9 @@ def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0,
         #print(y.unique(), "y val")
         val = (y / y.max()).unsqueeze(1)
         #print(val.unique(), "val label")
-        img = f"{folder}{time}_val_i{idx}.png"
+        img = f"{folder}{time}_val_i{idx:02d}.png"
         save_image(val, img)
-        dict_val[f'validation_i{idx}'] = wandb.Image(img)
+        dict_val[f'validation_i{idx:02d}'] = wandb.Image(img)
     
     wandb.log(dict_val)
 
@@ -228,9 +231,10 @@ def save_test_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, devic
         #print(y.unique(), "y val")
         val = (y / y.max()).unsqueeze(1)
         #print(val.unique(), "val label")
-        img = f"{folder}{time}_test_i{idx}.png"
-        save_image(val, img)
-        dict_val[f'test_i{idx}'] = wandb.Image(img)
+        for j in range(y.size(0)):
+            img = f"{folder}{time}_test_i{idx:02d}_p{j:02d}.png"
+            save_image(val, img)
+            dict_val[f'test_i{idx:02d}_p{j:02d}'] = wandb.Image(img)
     
     wandb.log(dict_val)
 
@@ -295,6 +299,38 @@ def roc_auc_multilabel(y_pred,y_true):
 
     return roc
 
+def roc_curve_multilabel(y_pred,y_true):
+    num_labels = len(y_true.unique())
+    roc=[]
+    y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
+    
+    for index in range(num_labels):
+        temp_true = np.zeros_like(y_true)
+        temp_true[y_true == index] = 1
+        temp_pred = np.zeros_like(y_pred)
+        temp_pred[y_pred == index] = 1
+        roc.append(list(roc_curve(temp_true, temp_pred))[:2])
+
+    return roc
+
+def macro_roc_curve(lst:list)->tuple[np.array, np.array, float]:
+    n_classes = len(lst)
+
+    fpr =[l[0] for l in lst]
+    tpr = [l[1] for l in lst]
+    
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+
+    # Then interpolate all ROC curves at this points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+
+    # Finally average it and compute AUC
+    mean_tpr /= n_classes
+
+    return all_fpr, mean_tpr, auc(all_fpr, mean_tpr)
+
 # Compute the average segmentation accuracy across all classes
 def compute_global_accuracy(pred, label):
     total = len(label)
@@ -337,15 +373,21 @@ def evaluate_segmentation(pred, label, score_averaging=None):
     rec = recall_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
     iou = compute_iou(flat_pred, flat_label)
     dice = dice_coef_multilabel(flat_pred, flat_label)
-    roc = roc_auc_multilabel(flat_pred, flat_label)
-    
-    dict_eval = {"accuracy":global_accuracy}
+    auc = roc_auc_multilabel(flat_pred, flat_label)
+    curve = roc_curve_multilabel(flat_pred, flat_label)
+    macro_fpr, macro_tpr, macro_auc = macro_roc_curve(curve)
+    dict_eval = {"accuracy":global_accuracy,
+                 "macro_fpr":macro_fpr,
+                 "macro_tpr":macro_tpr,
+                 "macro_auc":macro_auc}
 
     for i in range(CONFIG.IMAGE.MASK_LABELS):
         dict_eval[f'accuracy_label_{i}'] = prec[i]
         dict_eval[f'recall_label_{i}'] = rec[i]
         dict_eval[f'iou_label_{i}'] = iou[i]
-        dict_eval[f'auc_label_{i}'] = roc[i]
+        dict_eval[f'auc_label_{i}'] = auc[i]
+        dict_eval[f'fpr_label_{i}'] = curve[i][0]
+        dict_eval[f'tpr_label_{i}'] = curve[i][1]
         dict_eval[f'dice_label_{i}'] = dice[i]
 
     return dict_eval
