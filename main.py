@@ -1,4 +1,3 @@
-from albumentations.augmentations.functional import multiply
 import wandb
 import os
 import torch
@@ -12,6 +11,7 @@ from datetime import datetime
 
 from munch import munchify, unmunchify
 from yaml import safe_load
+import torchgeometry as tgm
 
 from model import UNET
 from early_stopping import EarlyStopping
@@ -55,15 +55,23 @@ def main():
     model = UNET(in_channels = CONFIG.IMAGE.IMAGE_CHANNELS, classes = CONFIG.IMAGE.MASK_LABELS, config = config).to(DEVICE)
     model = nn.DataParallel(model)
 
-    if CONFIG.HYPERPARAMETERS.WEIGHTS:
+    if CONFIG.HYPERPARAMETERS.WEIGHTS is not None:
         weights = get_weights(CONFIG.PATHS.TRAIN_MASK_DIR, 
                               CONFIG.IMAGE.MASK_LABELS, 
                               multiplier=CONFIG.HYPERPARAMETERS.MULTIPLIER,
                               device=DEVICE
                               )
-        loss_fn = nn.CrossEntropyLoss(weight = weights)
+
     else:
-        loss_fn = nn.CrossEntropyLoss()
+        weights = None
+    
+    if config.LOSS_FUNCTION == "crossentropy":
+        loss_fn = nn.CrossEntropyLoss(weight = weights)
+    elif config.LOSS_FUNCTION == "tversky":
+        loss_fn = tgm.losses.TverskyLoss(alpha=0.5, beta=0.5)
+    else:
+        raise KeyError(f"loss function {config.LOSS_FUNCTION} not recognized.")
+
     
     if config.OPTIMIZER == 'adam':
         optimizer = optim.Adam(model.parameters(), lr=CONFIG.HYPERPARAMETERS.LEARNING_RATE)
