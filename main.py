@@ -111,7 +111,7 @@ def main():
         time = BEGIN
     )
 
-    save_validation_as_imgs(test_loader, time=BEGIN)
+    save_test_as_imgs(test_loader, time=BEGIN)
 
     predict_fn(
         test_loader,

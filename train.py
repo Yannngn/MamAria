@@ -63,7 +63,7 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
 
         print("Saving checkpoint ...")
         save_checkpoint(checkpoint)
-
+        
         # check accuracy
         print("Validating results ...")
         val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time)

@@ -3,7 +3,7 @@ import torch.functional as F
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from cv2 import imread
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import precision_score, recall_score, roc_auc_score
 
 import os
 import csv
@@ -146,7 +146,11 @@ def log_predictions(val_loader, model, loss_train, loss_val, epoch, time=0, fold
 
     with open(folder+f'{time}_preds.csv','a') as f:
         w = csv.DictWriter(f, dict_eval.keys())
-        w.writeheader()
+        file_exists = os.path.isfile(f)
+        
+        if not file_exists:
+            w.writeheader()
+
         w.writerow(dict_eval)
     
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -216,6 +220,20 @@ def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0,
     
     wandb.log(dict_val)
 
+def save_test_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
+    print("=> Saving test images ...")
+    dict_val = {}
+    for idx, (_, y) in enumerate(loader):
+        y = y.to(device)
+        #print(y.unique(), "y val")
+        val = (y / y.max()).unsqueeze(1)
+        #print(val.unique(), "val label")
+        img = f"{folder}{time}_test_i{idx}.png"
+        save_image(val, img)
+        dict_val[f'test_i{idx}'] = wandb.Image(img)
+    
+    wandb.log(dict_val)
+
 def label_to_pixel(preds, col='l'):
     if col == 'l':
         preds = preds / (CONFIG.IMAGE.MASK_LABELS - 1) #0, 1, 2 
@@ -250,6 +268,7 @@ def dice_coef(y_pred,y_true):
 
     intersection = np.sum(y_true_f * y_pred_f)
     smooth = 0.0001
+    
     return (2. * intersection + smooth) / (np.sum(y_true_f) + np.sum(y_pred_f) + smooth)
 
 def dice_coef_multilabel(y_pred,y_true):
@@ -261,6 +280,20 @@ def dice_coef_multilabel(y_pred,y_true):
         dice.append(dice_coef(y_true == index, y_pred == index))
 
     return dice
+
+def roc_auc_multilabel(y_pred,y_true):
+    num_labels = len(y_true.unique())
+    roc=[]
+    y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
+    
+    for index in range(num_labels):
+        temp_true = np.zeros_like(y_true)
+        temp_true[y_true == index] = 1
+        temp_pred = np.zeros_like(y_pred)
+        temp_pred[y_pred == index] = 1
+        roc.append(roc_auc_score(temp_true, temp_pred))
+
+    return roc
 
 # Compute the average segmentation accuracy across all classes
 def compute_global_accuracy(pred, label):
@@ -295,8 +328,6 @@ def compute_class_accuracies(pred, label, num_classes):
     return accuracies
 
 def evaluate_segmentation(pred, label, score_averaging=None):
-    
-    #iou = iou_score(pred, label, average=score_averaging)
 
     flat_pred = pred.flatten()
     flat_label = label.flatten()
@@ -306,6 +337,7 @@ def evaluate_segmentation(pred, label, score_averaging=None):
     rec = recall_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
     iou = compute_iou(flat_pred, flat_label)
     dice = dice_coef_multilabel(flat_pred, flat_label)
+    roc = roc_auc_multilabel(flat_pred, flat_label)
     
     dict_eval = {"accuracy":global_accuracy}
 
@@ -313,7 +345,7 @@ def evaluate_segmentation(pred, label, score_averaging=None):
         dict_eval[f'accuracy_label_{i}'] = prec[i]
         dict_eval[f'recall_label_{i}'] = rec[i]
         dict_eval[f'iou_label_{i}'] = iou[i]
-        #dict_eval[f'roc_score{i}'] = roc_score[i]
+        dict_eval[f'auc_label_{i}'] = roc[i]
         dict_eval[f'dice_label_{i}'] = dice[i]
 
     return dict_eval
