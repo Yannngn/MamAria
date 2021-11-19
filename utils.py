@@ -164,11 +164,15 @@ def log_submission(loader, model, loss_test, time=0, folder=CONFIG.PATHS.PREDICT
     for key in dict_subm:
         print (key,':', dict_subm[key])
 
+    file_exists = os.path.isfile(folder+f'{time}_submission.csv')
     with open(folder+f'{time}_submission.csv','a') as f:
         w = csv.DictWriter(f, dict_subm.keys())
-        w.writeheader()
-        w.writerow(dict_subm)
-    
+        
+        if not file_exists:
+            w.writeheader()
+
+        w.writerow(dict_subm)    
+
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     save_submission_as_imgs(loader, model, dict_subm, time=now, folder=CONFIG.PATHS.SUBMISSIONS_DIR, device=device)
 
@@ -330,7 +334,6 @@ def macro_roc_curve(lst:list)->tuple[np.array, np.array, float]:
 
     return all_fpr, mean_tpr, auc(all_fpr, mean_tpr)
 
-# Compute the average segmentation accuracy across all classes
 def compute_global_accuracy(pred, label):
     total = len(label)
     count = 0.0
@@ -338,29 +341,6 @@ def compute_global_accuracy(pred, label):
         if pred[i] == label[i]:
             count = count + 1.0
     return float(count) / float(total)
-
-# Compute the class-specific segmentation accuracy
-def compute_class_accuracies(pred, label, num_classes):
-    total = []
-    for val in range(num_classes):
-        total.append((label == val).sum())
-
-    count = [0.0] * num_classes
-    for i in range(len(label)):
-        if pred[i] == label[i]:
-            count[int(pred[i])] = count[int(pred[i])] + 1.0
-
-    # If there are no pixels from a certain class in the GT, 
-    # it returns NAN because of divide by zero
-    # Replace the nans with a 0.0.
-    accuracies = []
-    for i in range(len(total)):
-        if total[i] == 0:
-            accuracies.append(0.0)
-        else:
-            accuracies.append(count[i] / total[i])
-
-    return accuracies
 
 def evaluate_segmentation(pred, label, score_averaging=None):
 
