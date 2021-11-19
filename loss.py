@@ -21,19 +21,27 @@ class TverskyLoss(nn.Module):
         if not input.device == target.device:
             raise ValueError(f"input and target must be in the same device. Got: {input.device, target.device}")
         # compute softmax over the classes axis
-        input_soft = F.softmax(input, dim=1)
-
-        # create the labels one hot tensor
-        target_one_hot = F.one_hot(target, num_classes=input.shape[1], device=input.device, dtype=input.dtype)
-
-        # compute the actual dice score
+        num_classes = input.shape[1]
+        if num_classes == 1:
+            target_1_hot = torch.eye(num_classes + 1)[target.squeeze(1)]
+            target_1_hot = target_1_hot.permute(0, 3, 1, 2).float()
+            target_1_hot_f = target_1_hot[:, 0:1, :, :]
+            target_1_hot_s = target_1_hot[:, 1:2, :, :]
+            target_1_hot = torch.cat([target_1_hot_s, target_1_hot_f], dim=1)
+            pos_prob = torch.sigmoid(input)
+            neg_prob = 1 - pos_prob
+            probas = torch.cat([pos_prob, neg_prob], dim=1)
+        else:
+            target_1_hot = torch.eye(num_classes)[target.squeeze(1)]
+            target_1_hot = target_1_hot.permute(0, 3, 1, 2).float()
+            probas = F.softmax(input, dim=1)
+        target_1_hot = target_1_hot.type(input.type())
         dims = (0,) + tuple(range(2, target.ndimension()))
-        intersection = torch.sum(input_soft * target_one_hot, dims)
-        fps = torch.sum(input_soft * (1. - target_one_hot), dims)
-        fns = torch.sum((1. - input_soft) * target_one_hot, dims)
+        intersection = torch.sum(probas * target_1_hot, dims)
+        fps = torch.sum(probas * (1 - target_1_hot), dims)
+        fns = torch.sum((1 - probas) * target_1_hot, dims)
+        num = intersection
+        denom = intersection + (self.alpha * fps) + (self.beta * fns)
+        tversky_loss = (num / (denom + self.eps)).mean()
 
-        numerator = self.weights * intersection
-        denominator = intersection + self.alpha * fps + self.beta * fns
-        tversky_loss = numerator / (denominator + self.eps)
-        
         return torch.mean(1. - tversky_loss)

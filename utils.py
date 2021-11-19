@@ -1,8 +1,14 @@
 import torch
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
+import torch.nn.functional as F
 from cv2 import imread
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import precision_score, recall_score, roc_curve, auc
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import label_binarize
+from scipy import interp
+from itertools import cycle
+from torchmetrics import AUROC
 
 import os
 import csv
@@ -19,7 +25,6 @@ with open('config.yaml') as f:
     CONFIG = munchify(safe_load(f))
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
-    print("=> Saving checkpoint")
     torch.save(state, filename)
 
 def load_checkpoint(checkpoint, model, optimizer, scheduler):
@@ -132,24 +137,38 @@ def check_accuracy(loader, model, device=DEVICE):
     with torch.no_grad():
         for x, y in loader:
             x = x.to(device)
-            preds = model(x)
+            preds = model(x) #([14, 3, 512, 301])
+            pred_long = preds.long
+            
             y = y.to(device)
 
+            y_long = y.long() #B, H, W
+            
             y = (y).unsqueeze(1)
 
-            preds_labels = torch.argmax(preds, 1).unsqueeze(1)
-          
+            preds_labels = torch.argmax(preds, 1).unsqueeze(1) #(14, 1, 512, 301) -> flatten (2157568,)
+
+            probs_labels = F.softmax(preds, 1) #(14, 3, 512, 301) acho q tá fazendo a mais aqui
+                
             num_correct += (preds_labels == y).sum()
             num_pixels += torch.numel(preds_labels)
             
-            y = y.to('cpu').numpy()
-            preds_labels = preds_labels.to('cpu').numpy()
+            y = y.cpu().detach().numpy()
+            #bin_y = bin_y.cpu().detach().numpy()
+
+            #pred_roc_labels = preds_labels
+
+            preds_labels = preds_labels.cpu().detach().numpy()
+
+            #probs_labels =probs_labels.cpu().detach().numpy()
 
             dict_eval = evaluate_segmentation(preds_labels, y, score_averaging = None)
 
+            roc_score = roc(probs_labels, y_long)
+
     model.train()
 
-    return num_correct, num_pixels, dict_eval
+    return num_correct, num_pixels, dict_eval, roc_score
 
 def log_predictions(
     val_loader, 
@@ -161,10 +180,16 @@ def log_predictions(
     folder=CONFIG.PATHS.PREDICTIONS_DIR,
     device=DEVICE
 ):
-    num_correct, num_pixels, dict_eval = check_accuracy(val_loader, model, device)
+    num_correct, num_pixels, dict_eval, roc_score  = check_accuracy(val_loader, model, device)
 
     dict_eval['loss_train'] = loss_train
     dict_eval['loss_val'] = loss_val
+
+    roc_score['loss_train'] = loss_train
+    roc_score['loss_val'] = loss_val
+
+    for key in roc_score:
+        print (key,':', roc_score[key])
 
     print(f"Got {num_correct} of {num_pixels} pixels;")
     for key in dict_eval:
@@ -180,7 +205,7 @@ def log_predictions(
 
 def log_submission(loader, model, loss_test, time=0, folder=CONFIG.PATHS.PREDICTIONS_DIR, device = DEVICE):
     num_correct, num_pixels, dict_subm = check_accuracy(loader, model, device)
-    dict_subm['loss_val'] = loss_test
+    dict_subm['loss_subm'] = loss_test
 
     print(f"Got {num_correct} of {num_pixels} pixels;")
     for key in dict_subm:
@@ -202,10 +227,13 @@ def save_predictions_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PATH
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
             preds_labels = torch.argmax(model(x), 1)
+            #print(preds_labels.unique(), "pred labels")
             preds_labels = label_to_pixel(preds_labels)
+            #print(preds_labels.unique(), "pred labels to pixel")
             img = folder + f"{time}_pred_e{epoch}_i{idx}.png"
             save_image(preds_labels, img)
             dict_eval[f'prediction_i{idx}'] = wandb.Image(img)
+            
             
     model.train()
     wandb.log(dict_eval)
@@ -227,19 +255,21 @@ def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMIS
 
 def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving validation images ...")
-
+    dict_val = {}
     for idx, (_, y) in enumerate(loader):
         y = y.to(device)
+        #print(y.unique(), "y val")
         val = (y / y.max()).unsqueeze(1)
+        #print(val.unique(), "val label")
         img = f"{folder}{time}_val_i{idx}.png"
         save_image(val, img)
-        dict_val = {f'validation_i{idx}':wandb.Image(img)}
+        dict_val[f'validation_i{idx}'] = wandb.Image(img)
     
     wandb.log(dict_val)
 
 def label_to_pixel(preds, col='l'):
     if col == 'l':
-        preds = preds / 3
+        preds = preds / (CONFIG.IMAGE.MASK_LABELS - 1) #0, 1, 2 
         preds = preds.unsqueeze(1).float()
         return preds
 
@@ -279,7 +309,7 @@ def compute_class_accuracies(pred, label, num_classes):
 
     return accuracies
 
-def compute_mean_iou(pred, label, mean=False):
+def compute_iou(pred, label, mean=False):
     unique_labels = np.unique(label)
     num_unique_labels = len(unique_labels)
 
@@ -298,24 +328,200 @@ def compute_mean_iou(pred, label, mean=False):
 
     return out
 
+def compute_dice_score(true, logits, eps=1e-7):
+    num_classes = logits.shape[1]
+    if num_classes == 1:
+        true_1_hot = torch.eye(num_classes + 1)[true.squeeze(1)]
+        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
+        true_1_hot_f = true_1_hot[:, 0:1, :, :]
+        true_1_hot_s = true_1_hot[:, 1:2, :, :]
+        true_1_hot = torch.cat([true_1_hot_s, true_1_hot_f], dim=1)
+        pos_prob = torch.sigmoid(logits)
+        neg_prob = 1 - pos_prob
+        probas = torch.cat([pos_prob, neg_prob], dim=1)
+    else:
+        true_1_hot = torch.eye(num_classes)[true.squeeze(1)]
+        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
+        probas = F.softmax(logits, dim=1)
+    true_1_hot = true_1_hot.type(logits.type())
+    dims = (0,) + tuple(range(2, true.ndimension()))
+    intersection = torch.sum(probas * true_1_hot, dims)
+    cardinality = torch.sum(probas + true_1_hot, dims)
+    dice_score = (2. * intersection / (cardinality + eps)).mean()
+    return dice_score
+
 def evaluate_segmentation(pred, label, score_averaging=None):
+    
     flat_pred = pred.flatten()
     flat_label = label.flatten()
-
+    
     global_accuracy = compute_global_accuracy(flat_pred, flat_label)
 
     prec = precision_score(flat_pred, flat_label, average=score_averaging)
     rec = recall_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
- 
+    iou = compute_iou(flat_pred, flat_label)
+   
+    #dice = compute_dice_score(flat_pred, flat_label)
+
     dict_eval = {"accuracy":global_accuracy,
-                 "accuracy_label_0":prec[0],
-                 "accuracy_label_1":prec[1],
-                 "accuracy_label_2":prec[2],
-                 "accuracy_label_3":prec[3],
-                 "recall_label_0":rec[0],
-                 "recall_label_1":rec[1],
-                 "recall_label_2":rec[2],
-                 "recall_label_3":rec[3],
-                }
+    #"roc_auc":roc_score
+    }
+
+    for i in range(CONFIG.IMAGE.MASK_LABELS):
+        dict_eval[f'accuracy_label_{i}'] = prec[i]
+        dict_eval[f'recall_label_{i}'] = rec[i]
+        dict_eval[f'iou_label_{i}'] = iou[i]
+        #dict_eval[f'roc_score{i}'] = roc_score[i]
+        #dict_eval[f'dice_label_{i}'] = dice[i]
 
     return dict_eval
+
+def roc (pred ,label):
+    #pred (float tensor): (N, C, ...) (multiclass) tensor with probabilities, where C is the number of classes.
+    #label (long tensor): (N, ...) or (N, C, ...) with integer labels
+    #if the preds and target tensor have the same size the input will be interpretated as multilabel 
+    #if preds have one dimension more than the target tensor the input will be interpretated as multiclass.
+    preds = pred
+    labels = label
+    num_classes =CONFIG.IMAGE.MASK_LABELS
+    
+
+    """roc_macro = AUROC(preds, labels, num_classes, average='macro', max_fpr=None,
+                      compute_on_step=True, dist_sync_on_step=False, process_group=None, dist_sync_fn=None)
+
+    roc_weight = AUROC (preds, labels, num_classes, average='weighted', max_fpr=None,
+                        compute_on_step=True, dist_sync_on_step=False, process_group=None, dist_sync_fn=None)"""
+    
+    roc_per_class = AUROC (preds, labels, num_classes, average=None)
+
+    roc_score = {#"roc_macro":roc_macro,
+                 #"roc_weight":roc_weight,
+                 "roc_per_class":roc_per_class,
+    }   
+
+    # Plot all ROC curves
+    plt.figure()
+    """plt.plot(
+        roc_macro,
+        label="macro-average ROC curve (area = {0:0.2f})".format(roc_macro),
+        color="deeppink",
+        linestyle=":",
+        linewidth=4,
+    )
+
+    plt.plot(
+        roc_weight,
+        label="macro-weight ROC curve (area = {0:0.2f})".format(roc_weight),
+        color="navy",
+        linestyle=":",
+        linewidth=4,
+    )"""
+
+    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
+    for i, color in zip(range(CONFIG.IMAGE.MASK_LABELS), colors):
+        plt.plot(
+            roc_per_class,
+            color=color,
+            lw=2,
+            label="ROC curve of class {0} (area = {1:0.2f})".format(i, roc_per_class[i]),
+        )
+
+    plt.plot([0, 1], [0, 1], "k--", lw=2)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Some extension of Receiver operating characteristic to multiclass")
+    plt.legend(loc="lower right")
+    plt.show()
+
+    wandb.log({"ROC": plt})
+    
+    return roc_score
+
+
+    
+
+    
+def ROC (y_test, y_score):
+
+    y_test_flatten =y_test.cpu().detach().numpy().flatten() 
+    
+    y_test_flatten = label_binarize(y_test_flatten, classes=[0,1,2]) # [0,1,1], [0,1,0], len (2157568,) 
+    print(y_test_flatten.shape, "yteste")
+    y_score = torch.gather(y_score, 1, y_test) #[14, 1, 512, 301]
+    
+    y_score_flatten = y_score.flatten() #[2157568]
+    
+    n_classes =  y_test_flatten.shape[1] 
+    print(n_classes, "nclases")
+    
+
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_test_flatten[:, i], y_score_flatten[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    # Compute micro-average ROC curve and ROC area
+    fpr["micro"], tpr["micro"], _ = roc_curve(y_test_flatten.ravel(), y_score_flatten.ravel())
+    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+
+    # First aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+
+    # Then interpolate all ROC curves at this points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        mean_tpr += interp(all_fpr, fpr[i], tpr[i])
+
+    # Finally average it and compute AUC
+    mean_tpr /= n_classes
+
+    fpr["macro"] = all_fpr
+    tpr["macro"] = mean_tpr
+    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
+    
+    # Plot all ROC curves
+    plt.figure()
+    plt.plot(
+        fpr["micro"],
+        tpr["micro"],
+        label="micro-average ROC curve (area = {0:0.2f})".format(roc_auc["micro"]),
+        color="deeppink",
+        linestyle=":",
+        linewidth=4,
+    )
+
+    plt.plot(
+        fpr["macro"],
+        tpr["macro"],
+        label="macro-average ROC curve (area = {0:0.2f})".format(roc_auc["macro"]),
+        color="navy",
+        linestyle=":",
+        linewidth=4,
+    )
+
+    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
+    for i, color in zip(range(n_classes), colors):
+        plt.plot(
+            fpr[i],
+            tpr[i],
+            color=color,
+            lw=2,
+            label="ROC curve of class {0} (area = {1:0.2f})".format(i, roc_auc[i]),
+        )
+
+    plt.plot([0, 1], [0, 1], "k--", lw=2)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Some extension of Receiver operating characteristic to multiclass")
+    plt.legend(loc="lower right")
+    plt.show()
+
+    roc_score = roc_auc["macro"]
+    #wandb.log({"ROC": plt})
+    #return roc_score

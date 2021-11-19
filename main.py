@@ -2,6 +2,7 @@ import wandb
 import os
 import torch
 import torch.nn as nn
+import torchgeometry as tgm
 import torch.optim as optim
 
 import albumentations as A
@@ -11,13 +12,15 @@ from datetime import datetime
 
 from munch import munchify, unmunchify
 from yaml import safe_load
-import torchgeometry as tgm
 
 from model import UNET
 from early_stopping import EarlyStopping
 from utils import load_checkpoint, get_loaders, save_validation_as_imgs, get_weights
 from train import train_loop
 from predict import predict_fn
+from loss import TverskyLoss
+from summary import summary
+import pytorch_model_summary as pms
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PARENT_DIR = os.path.abspath(__file__)
@@ -44,21 +47,23 @@ def main():
                                                         CONFIG.PATHS.VAL_MASK_DIR,
                                                         CONFIG.PATHS.TEST_IMG_DIR,
                                                         CONFIG.PATHS.TEST_MASK_DIR,
-                                                        CONFIG.HYPERPARAMETERS.BATCH_SIZE,
+                                                        config.BATCH_SIZE,
                                                         train_transforms,
                                                         val_transforms,
                                                         test_transforms,
-                                                        CONFIG.PROJECT.NUM_WORKERS,
+                                                        2,
                                                         CONFIG.PROJECT.PIN_MEMORY,
                                                         )
 
     model = UNET(in_channels = CONFIG.IMAGE.IMAGE_CHANNELS, classes = CONFIG.IMAGE.MASK_LABELS, config = config).to(DEVICE)
     model = nn.DataParallel(model)
+    #print(model)
 
-    if CONFIG.HYPERPARAMETERS.WEIGHTS is not None:
+
+    if config.WEIGHTS is not None:
         weights = get_weights(CONFIG.PATHS.TRAIN_MASK_DIR, 
                               CONFIG.IMAGE.MASK_LABELS, 
-                              multiplier=CONFIG.HYPERPARAMETERS.MULTIPLIER,
+                              multiplier=config.MULTIPLIER,
                               device=DEVICE
                               )
 
@@ -68,16 +73,15 @@ def main():
     if config.LOSS_FUNCTION == "crossentropy":
         loss_fn = nn.CrossEntropyLoss(weight = weights)
     elif config.LOSS_FUNCTION == "tversky":
-        loss_fn = tgm.losses.TverskyLoss(alpha=0.5, beta=0.5)
+        loss_fn = TverskyLoss(alpha=0.5, beta=0.5, weights=weights)
     else:
         raise KeyError(f"loss function {config.LOSS_FUNCTION} not recognized.")
-
     
     if config.OPTIMIZER == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=CONFIG.HYPERPARAMETERS.LEARNING_RATE)
+        optimizer = optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
     elif config.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(model.parameters(), 
-                              lr=CONFIG.HYPERPARAMETERS.LEARNING_RATE, 
+                              lr=config.LEARNING_RATE, 
                               momentum=0.9, 
                               nesterov=True, 
                               weight_decay=0.0001
@@ -94,7 +98,7 @@ def main():
 
     scaler = torch.cuda.amp.GradScaler()
 
-    stopping = EarlyStopping()
+    stopping = EarlyStopping(patience=15, wait=50)
     
     save_validation_as_imgs(val_loader, time = BEGIN)
 

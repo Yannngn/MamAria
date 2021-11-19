@@ -3,7 +3,7 @@ import numpy as np
 
 class EarlyStopping:
 
-    def __init__(self, patience=10, mode="min", delta=0.001, wait = 50):
+    def __init__(self, patience=15, mode="min", delta=0.001, wait = 50):
 
         self.patience = patience
         self.counter = 0

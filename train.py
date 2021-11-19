@@ -19,6 +19,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     for _, (data, targets) in enumerate(loop):
         data = data.to(device=DEVICE)
         targets = targets.long().to(device=DEVICE)
+        #print(targets.unique(), "targets")
         
         # forward
         with torch.cuda.amp.autocast():

@@ -5,13 +5,13 @@ from model import UNET
 import wandb
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 50
-IMAGE_HEIGHT = 160#512  # 256 originally
-IMAGE_WIDTH = 240#301  # 98 originally
-IMAGE_CHANNELS = 3
+BATCH_SIZE = 15
+IMAGE_HEIGHT = 512  # 256 originally
+IMAGE_WIDTH = 301  # 98 originally
+IMAGE_CHANNELS = 1
 MASK_CHANNELS = 1
-MASK_LABELS = 1
-MAX_LAYER_SIZE = 512
+MASK_LABELS = 4
+MAX_LAYER_SIZE = 1024
 MIN_LAYER_SIZE = 64
 PATH = '/'.join(os.path.abspath(__file__).split('\\')[:-2])+'/'
 
