@@ -40,8 +40,6 @@ def predict_fn(test_loader, model, loss_fn, time):
     log_submission(test_loader, model, loss.item(), time=time)
     
     model.train()
-    
-    wandb.finish()  
 
     return loss.item()
 
@@ -90,9 +88,7 @@ def main():
     else:
         raise KeyError(f"loss function {config.LOSS_FUNCTION} not recognized.")
 
-    load_checkpoint(torch.load("my_checkpoint.pth.tar"), model, optimizer=None, scheduler=None)
-
-    save_test_as_imgs(test_loader, time=BEGIN)
+    load_checkpoint(torch.load("data/checkpoints/20211117_193820_best_checkpoint.pth.tar", map_location=torch.device('cpu')), model, optimizer=None, scheduler=None)
 
     predict_fn(
         test_loader,
@@ -100,6 +96,8 @@ def main():
         loss_fn,
         time = BEGIN
     )
+    
+    wandb.finish()  
 
 if __name__ == "__main__":
     main()

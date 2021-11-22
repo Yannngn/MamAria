@@ -11,6 +11,7 @@ from yaml import safe_load
 from munch import munchify
 import wandb
 from datetime import datetime
+import json
 
 from dataset import PhantomDataset
 
@@ -128,7 +129,7 @@ def check_accuracy(loader, model, device=DEVICE):
             num_correct += (preds_labels == y).sum()
             num_pixels += torch.numel(preds_labels)
 
-            dict_eval = evaluate_segmentation(preds_labels, y, score_averaging = None)
+            dict_eval = evaluate_segmentation(preds, y, score_averaging = None)
     model.train()
 
     return num_correct, num_pixels, dict_eval
@@ -143,35 +144,27 @@ def log_predictions(val_loader, model, loss_train, loss_val, epoch, time=0, fold
     print(f"Got {num_correct} of {num_pixels} pixels;")
     for key in dict_eval:
         print (key,':', dict_eval[key])
-    
-    file_exists = os.path.isfile(folder+f'{time}_preds.csv')
-    with open(folder+f'{time}_preds.csv','a') as f:
-        w = csv.DictWriter(f, dict_eval.keys())
-        
-        if not file_exists:
-            w.writeheader()
 
-        w.writerow(dict_eval)
+    json_lines = json.dumps(dict_eval)
+    
+    with open(folder+f'{time}_prediction.json','w') as f:
+        json.dump(json_lines, f)  
     
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     save_predictions_as_imgs(val_loader, model, epoch, dict_eval, time=now, folder=CONFIG.PATHS.PREDICTIONS_DIR, device=device)
 
-def log_submission(loader, model, loss_test, time=0, folder=CONFIG.PATHS.PREDICTIONS_DIR, device = DEVICE):
+def log_submission(loader, model, loss_test, time=0, folder=CONFIG.PATHS.SUBMISSIONS_DIR, device = DEVICE):
     num_correct, num_pixels, dict_subm = check_accuracy(loader, model, device)
     dict_subm['loss_subm'] = loss_test
 
     print(f"Got {num_correct} of {num_pixels} pixels;")
     for key in dict_subm:
         print (key,':', dict_subm[key])
-
-    file_exists = os.path.isfile(folder+f'{time}_submission.csv')
-    with open(folder+f'{time}_submission.csv','a') as f:
-        w = csv.DictWriter(f, dict_subm.keys())
-        
-        if not file_exists:
-            w.writeheader()
-
-        w.writerow(dict_subm)    
+    
+    #json_lines = json.dumps(dict_subm)
+    
+    with open(folder+f'{time}_submission.json','w') as f:
+        json.dump(dict_subm, f, ensure_ascii=False, indent=4)  
 
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     save_submission_as_imgs(loader, model, dict_subm, time=now, folder=CONFIG.PATHS.SUBMISSIONS_DIR, device=device)
@@ -289,32 +282,21 @@ def dice_coef_multilabel(y_pred,y_true):
 
     return dice
 
-def roc_auc_multilabel(y_pred,y_true):
+def roc_auc_multilabel(y_pred:torch.tensor,y_true:torch.tensor)->tuple[list, list]:
     num_labels = len(y_true.unique())
-    roc=[]
+    auc_, curve_= [],[]
     y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
-    
+    print(y_pred.shape)
     for index in range(num_labels):
+        temp_pred = y_pred[:,index,:,:].flatten()
         temp_true = np.zeros_like(y_true)
         temp_true[y_true == index] = 1
-        temp_pred = np.zeros_like(y_pred)
-        temp_pred[y_pred == index] = 1
-        roc.append(roc_auc_score(temp_true, temp_pred))
-
-    return roc
-
-def roc_curve_multilabel(y_pred:torch.tensor,y_true:torch.tensor)->list:
-    num_labels = len(y_true.unique())
-    roc=[]
-    y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
+        #temp_pred = np.zeros_like(temp)
+        #temp_pred[y_true == index] = temp[y_true == index]
+        auc_.append(roc_auc_score(temp_true, temp_pred))
+        curve_.append(list(roc_curve(temp_true, temp_pred)))
     
-    for index in range(num_labels):
-        temp_true = np.zeros_like(y_true)
-        temp_true[y_true == index] = 1
-        temp_pred = np.zeros_like(y_pred)
-        temp_pred[y_pred == index] = 1
-        roc.append(list(roc_curve(temp_true, temp_pred)))
-    return roc
+    return auc_, curve_
 
 def macro_roc_curve(lst:list)->tuple[np.array, np.array, float]:
     n_classes = len(lst)
@@ -342,8 +324,10 @@ def compute_global_accuracy(pred, label):
             count = count + 1.0
     return float(count) / float(total)
 
-def evaluate_segmentation(pred, label, score_averaging=None):
+def evaluate_segmentation(prob, label, score_averaging=None):
 
+    pred = torch.argmax(prob, 1).unsqueeze(1)
+    print(prob.shape)
     flat_pred = pred.flatten()
     flat_label = label.flatten()
     
@@ -352,12 +336,11 @@ def evaluate_segmentation(pred, label, score_averaging=None):
     rec = recall_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
     iou = compute_iou(flat_pred, flat_label)
     dice = dice_coef_multilabel(flat_pred, flat_label)
-    auc = roc_auc_multilabel(flat_pred, flat_label)
-    curve = roc_curve_multilabel(flat_pred, flat_label)
+    auc, curve = roc_auc_multilabel(prob, flat_label)
     macro_fpr, macro_tpr, macro_auc = macro_roc_curve(curve)
     dict_eval = {"accuracy":global_accuracy,
-                 "macro_fpr":macro_fpr,
-                 "macro_tpr":macro_tpr,
+                 "macro_fpr":macro_fpr.tolist(),
+                 "macro_tpr":macro_tpr.tolist(),
                  "macro_auc":macro_auc}
 
     for i in range(CONFIG.IMAGE.MASK_LABELS):
@@ -365,9 +348,9 @@ def evaluate_segmentation(pred, label, score_averaging=None):
         dict_eval[f'recall_label_{i}'] = rec[i]
         dict_eval[f'iou_label_{i}'] = iou[i]
         dict_eval[f'auc_label_{i}'] = auc[i]
-        dict_eval[f'fpr_label_{i}'] = curve[i][0]
-        dict_eval[f'tpr_label_{i}'] = curve[i][1]
-        dict_eval[f'thresholds_label_{i}'] = curve[i][2]
+        dict_eval[f'fpr_label_{i}'] = curve[i][0].tolist()
+        dict_eval[f'tpr_label_{i}'] = curve[i][1].tolist()
+        dict_eval[f'thresholds_label_{i}'] = curve[i][2].tolist()
         dict_eval[f'dice_label_{i}'] = dice[i]
 
     return dict_eval

@@ -26,8 +26,9 @@ def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time):
 
         if CONFIG.PROJECT.SCHEDULER:
             scheduler.step(loss.item())
-    print("=> Logging and saving predictions ...")
-    log_predictions(val_loader, model, train_loss, loss.item(), epoch, time=time)
+    if epoch % 10 == 0:
+        print("=> Logging and saving predictions ...")
+        log_predictions(val_loader, model, train_loss, loss.item(), epoch, time=time)
 
     model.train()
 
