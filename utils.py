@@ -316,6 +316,29 @@ def macro_roc_curve(lst:list)->tuple[np.array, np.array, float]:
 
     return all_fpr, mean_tpr, auc(all_fpr, mean_tpr)
 
+def roc_auc_multilabel_global(y_pred,y_true):
+    num_labels = len(y_true.unique())
+
+    y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
+
+    flatten_y_pred = []
+    flatten_y_true = []
+    for index in range(num_labels):
+        flatten_y_pred.append(y_pred[:,index,:,:].flatten())
+        temp = np.zeros_like(y_true)
+        temp[y_true == index] = 1
+        flatten_y_true.append(temp)
+    flatten_y_pred=np.array(flatten_y_pred)
+    weighted_roc_auc_ovo = roc_auc_score(
+        flatten_y_true, flatten_y_pred, multi_class="ovo", average="weighted"
+    )
+    
+    weighted_roc_auc_ovr = roc_auc_score(
+        flatten_y_true, flatten_y_pred, multi_class="ovr", average="weighted"
+    )
+    
+    return weighted_roc_auc_ovo, weighted_roc_auc_ovr
+
 def compute_global_accuracy(pred, label):
     total = len(label)
     count = 0.0
@@ -338,9 +361,12 @@ def evaluate_segmentation(prob, label, score_averaging=None):
     dice = dice_coef_multilabel(flat_pred, flat_label)
     auc, curve = roc_auc_multilabel(prob, flat_label)
     macro_fpr, macro_tpr, macro_auc = macro_roc_curve(curve)
+    roc_ovo, roc_ovr = roc_auc_multilabel_global(prob, flat_label)
     dict_eval = {"accuracy":global_accuracy,
-                 "macro_fpr":macro_fpr.tolist(),
-                 "macro_tpr":macro_tpr.tolist(),
+                 "auc_ovo":roc_ovo,
+                 "auc_ovr":roc_ovr,
+                 "macro_fpr":macro_fpr.tolist(), 
+                 "macro_tpr": macro_tpr.tolist(),
                  "macro_auc":macro_auc}
 
     for i in range(CONFIG.IMAGE.MASK_LABELS):
