@@ -5,7 +5,7 @@ from cv2 import imread
 from sklearn.metrics import precision_score, recall_score, roc_auc_score, roc_curve, auc
 
 import os
-import csv
+from tqdm import tqdm
 import numpy as np
 from yaml import safe_load
 from munch import munchify
@@ -113,12 +113,14 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = CONFIG.HYPERPA
     return torch.tensor(out).float().to(device)
 
 def check_accuracy(loader, model, device=DEVICE):
+    loop = tqdm(loader)
+    
     num_correct = 0
     num_pixels = 0
     
     model.eval()
     with torch.no_grad():
-        for x, y in loader:
+        for x, y in loop:
             x = x.to(device)
             preds = model(x)
             
@@ -230,7 +232,7 @@ def save_test_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, devic
         #print(val.unique(), "val label")
         for j in range(y.size(0)):
             img = f"{folder}{time}_test_i{idx:02d}_p{j:02d}.png"
-            save_image(val, img)
+            save_image(val[j,:,:,:], img)
             dict_val[f'test_i{idx:02d}_p{j:02d}'] = wandb.Image(img)
     
     wandb.log(dict_val)
@@ -282,17 +284,15 @@ def dice_coef_multilabel(y_pred,y_true):
 
     return dice
 
-def roc_auc_multilabel(y_pred:torch.tensor,y_true:torch.tensor)->tuple[list, list]:
-    num_labels = len(y_true.unique())
+def roc_auc_multilabel(y_pred:np.array,y_true:np.array)->tuple[list, list]:
+    num_labels = len(np.unique(y_true.unique()))
     auc_, curve_= [],[]
-    y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
-    print(y_pred.shape)
+
     for index in range(num_labels):
         temp_pred = y_pred[:,index,:,:].flatten()
         temp_true = np.zeros_like(y_true)
         temp_true[y_true == index] = 1
-        #temp_pred = np.zeros_like(temp)
-        #temp_pred[y_true == index] = temp[y_true == index]
+
         auc_.append(roc_auc_score(temp_true, temp_pred))
         curve_.append(list(roc_curve(temp_true, temp_pred)))
     
@@ -317,13 +317,12 @@ def macro_roc_curve(lst:list)->tuple[np.array, np.array, float]:
     return all_fpr, mean_tpr, auc(all_fpr, mean_tpr)
 
 def roc_auc_multilabel_global(y_pred,y_true):
-    num_labels = len(y_true.unique())
-
-    y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
+    num_labels = len(np.unique(y_true.unique()))
 
     flatten_y_pred = []
     flatten_y_true = []
     for index in range(num_labels):
+
         flatten_y_pred.append(y_pred[:,index,:,:].flatten())
         temp = np.zeros_like(y_true)
         temp[y_true == index] = 1
@@ -359,9 +358,9 @@ def evaluate_segmentation(prob, label, score_averaging=None):
     rec = recall_score(flat_pred, flat_label, average=score_averaging, zero_division = 0)
     iou = compute_iou(flat_pred, flat_label)
     dice = dice_coef_multilabel(flat_pred, flat_label)
-    auc, curve = roc_auc_multilabel(prob, flat_label)
+    auc, curve = roc_auc_multilabel(pred, flat_label)
     macro_fpr, macro_tpr, macro_auc = macro_roc_curve(curve)
-    roc_ovo, roc_ovr = roc_auc_multilabel_global(prob, flat_label)
+    roc_ovo, roc_ovr = roc_auc_multilabel_global(pred, flat_label)
     dict_eval = {"accuracy":global_accuracy,
                  "auc_ovo":roc_ovo,
                  "auc_ovr":roc_ovr,
@@ -380,3 +379,4 @@ def evaluate_segmentation(prob, label, score_averaging=None):
         dict_eval[f'dice_label_{i}'] = dice[i]
 
     return dict_eval
+

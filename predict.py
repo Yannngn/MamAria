@@ -65,7 +65,7 @@ def main():
                                     train_transforms,
                                     val_transforms,
                                     test_transforms,
-                                    2,
+                                    4,
                                     CONFIG.PROJECT.PIN_MEMORY,
                                     )
 
@@ -88,7 +88,7 @@ def main():
     else:
         raise KeyError(f"loss function {config.LOSS_FUNCTION} not recognized.")
 
-    load_checkpoint(torch.load("data/checkpoints/20211117_193820_best_checkpoint.pth.tar", map_location=torch.device('cpu')), model, optimizer=None, scheduler=None)
+    load_checkpoint(torch.load("data/checkpoints/20211117_143517_best_checkpoint.pth.tar", map_location=torch.device('cpu')), model, optimizer=None, scheduler=None)
 
     predict_fn(
         test_loader,
