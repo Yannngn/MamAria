@@ -163,8 +163,6 @@ def log_submission(loader, model, loss_test, time=0, folder=CONFIG.PATHS.SUBMISS
     for key in dict_subm:
         print (key,':', dict_subm[key])
     
-    #json_lines = json.dumps(dict_subm)
-    
     with open(folder+f'{time}_submission.json','w') as f:
         json.dump(dict_subm, f, ensure_ascii=False, indent=4)  
 
@@ -190,6 +188,35 @@ def save_predictions_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PATH
     model.train()
     wandb.log(dict_eval)
 
+def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
+    print("=> Saving validation images ...")
+    dict_val = {}
+    for idx, (_, y) in enumerate(loader):
+        y = y.to(device)
+        #print(y.unique(), "y val")
+        val = (y / y.max()).unsqueeze(1)
+        #print(val.unique(), "val label")
+        img = f"{folder}{time}_val_i{idx:02d}.png"
+        save_image(val, img)
+        dict_val[f'validation_i{idx:02d}'] = wandb.Image(img)
+    
+    wandb.log(dict_val)
+
+def save_test_as_imgs(loader, folder=CONFIG.PATHS.SUBMISSIONS_DIR, time=0, device=DEVICE):
+    print("=> Saving test images ...")
+    dict_val = {}
+    for idx, (_, y) in enumerate(loader):
+        y = y.to(device)
+        #print(y.unique(), "y val")
+        val = (y / y.max()).unsqueeze(1)
+        #print(val.unique(), "val label")
+        for j in range(y.size(0)):
+            img = f"{folder}{time}_test_i{idx:02d}_p{j:02d}.png"
+            save_image(val[j,:,:,:], img)
+            dict_val[f'test_i{idx:02d}_p{j:02d}'] = wandb.Image(img)
+    
+    wandb.log(dict_val)
+
 def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMISSIONS_DIR, time=0, device=DEVICE):
     print("=> Saving submission images ...")
     
@@ -207,35 +234,6 @@ def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMIS
                 dict_subm[f'submission_i{idx:02d}_p{j:02d}'] = wandb.Image(img)
             
     wandb.log(dict_subm)
-
-def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
-    print("=> Saving validation images ...")
-    dict_val = {}
-    for idx, (_, y) in enumerate(loader):
-        y = y.to(device)
-        #print(y.unique(), "y val")
-        val = (y / y.max()).unsqueeze(1)
-        #print(val.unique(), "val label")
-        img = f"{folder}{time}_val_i{idx:02d}.png"
-        save_image(val, img)
-        dict_val[f'validation_i{idx:02d}'] = wandb.Image(img)
-    
-    wandb.log(dict_val)
-
-def save_test_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
-    print("=> Saving test images ...")
-    dict_val = {}
-    for idx, (_, y) in enumerate(loader):
-        y = y.to(device)
-        #print(y.unique(), "y val")
-        val = (y / y.max()).unsqueeze(1)
-        #print(val.unique(), "val label")
-        for j in range(y.size(0)):
-            img = f"{folder}{time}_test_i{idx:02d}_p{j:02d}.png"
-            save_image(val[j,:,:,:], img)
-            dict_val[f'test_i{idx:02d}_p{j:02d}'] = wandb.Image(img)
-    
-    wandb.log(dict_val)
 
 def label_to_pixel(preds, col='l'):
     if col == 'l':
