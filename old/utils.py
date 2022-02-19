@@ -2,8 +2,6 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from sklearn.metrics import precision_score, recall_score, roc_auc_score, jaccard_score, auc, precision_recall_curve, average_precision_score
-from typing import Tuple
-
 import os
 import cv2
 from tqdm import tqdm
@@ -14,7 +12,7 @@ import wandb
 from datetime import datetime
 import json
 
-from dataset import PhantomDataset
+from utils.dataset import PhantomDataset
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 with open('config.yaml') as f:
@@ -121,13 +119,14 @@ def check_accuracy(loader, model, device=DEVICE):
     with torch.no_grad():
         for x, y in loop:
             x = x.to(device)
+            y = y.to(device)
             preds = model(x)
             
-            y = y.unsqueeze(1).to(device)
+            y_ = y.unsqueeze(1)
 
             preds_labels = torch.argmax(preds, 1).unsqueeze(1) #(14, 1, 512, 301) -> flatten (2157568,)
                 
-            num_correct += (preds_labels == y).sum()
+            num_correct += (preds_labels == y_).sum()
             num_pixels += torch.numel(preds_labels)
 
             dict_eval = evaluate_segmentation(preds, y, score_averaging = None)
@@ -271,7 +270,7 @@ def dice_coef_multilabel(y_pred,y_true):
 
     return dice
 
-def roc_auc_multilabel(y_pred:torch.tensor,y_true:torch.tensor)->Tuple[list, list]:
+def roc_auc_multilabel(y_pred:torch.tensor,y_true:torch.tensor)->tuple[list, list]:
     num_labels = len(np.unique(y_true))
     auc_, curve_= [],[]
 
@@ -287,7 +286,7 @@ def roc_auc_multilabel(y_pred:torch.tensor,y_true:torch.tensor)->Tuple[list, lis
         
     return auc_, curve_
 
-def macro_roc_curve(lst:list)->Tuple[np.array, np.array, float]:
+def macro_roc_curve(lst:list)->tuple[np.array, np.array, float]:
     n_classes = len(lst)
 
     fpr =[l[0] for l in lst]
@@ -335,13 +334,14 @@ def compute_global_accuracy(pred, label):
     return float(count) / float(total)
 
 def evaluate_segmentation(prob, label, score_averaging=None):
+
     pred = torch.argmax(prob, 1)
     pred_ = pred.unsqueeze(1).cpu().numpy()
     
-    label = label.cpu().numpy()
+    label_ = label.unsqueeze(1).cpu().numpy()
 
     flat_pred = pred_.flatten()#.cpu().numpy()
-    flat_label = label.flatten()#.cpu().numpy()
+    flat_label = label_.flatten()#.cpu().numpy()
     
     prob = prob.cpu().numpy()
     #pred = pred.cpu().numpy()
@@ -354,11 +354,13 @@ def evaluate_segmentation(prob, label, score_averaging=None):
     #dice = dice_coef_multilabel(flat_pred, flat_label)
     pred_eli = fit_ellipses_on_image(pred)
     flat_pred_eli = pred_eli.flatten()#.cpu().numpy()
+    label_eli = fit_ellipses_on_image(label)
+    flat_label_eli = label_eli.flatten()
 
-    ellipse_global_accuracy = compute_global_accuracy(flat_pred_eli, flat_label)
-    ellipse_acc = jaccard_score(flat_pred_eli, flat_label, average=score_averaging)
-    ellipse_prec = precision_score(flat_pred_eli, flat_label, average=score_averaging)
-    ellipse_rec = recall_score(flat_pred_eli, flat_label, average=score_averaging, zero_division = 0)
+    ellipse_global_accuracy = compute_global_accuracy(flat_pred_eli, flat_label_eli)
+    ellipse_acc = jaccard_score(flat_pred_eli, flat_label_eli, average=score_averaging)
+    ellipse_prec = precision_score(flat_pred_eli, flat_label_eli, average=score_averaging)
+    ellipse_rec = recall_score(flat_pred_eli, flat_label_eli, average=score_averaging, zero_division = 0)
     #ellipse_iou = compute_iou(flat_pred, flat_label)
     #ellipse_dice = dice_coef_multilabel(flat_pred, flat_label)
 
@@ -390,6 +392,7 @@ def evaluate_segmentation(prob, label, score_averaging=None):
     return dict_eval
 
 def fit_ellipses_on_image(image: np.array) -> np.array:
+    lesion = (CONFIG.IMAGE.MASK_LABELS - 1)
     # recebe torch.argmax(pred, 1)
     image = image.cpu().numpy()
     image = image.astype(np.uint8)
@@ -400,13 +403,18 @@ def fit_ellipses_on_image(image: np.array) -> np.array:
     for i, img in enumerate(original):
         #img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(img, (3, 3), 0)
-        _, thresh = cv2.threshold(src=blur, thresh=2, maxval=3, type=cv2.THRESH_BINARY)
+        _, thresh = cv2.threshold(src=blur, thresh=lesion-1, maxval=lesion, type=cv2.THRESH_BINARY)
         print(thresh.shape, np.max(thresh), np.median(thresh))
 
         cnts, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         for c in cnts:
-            ellipse = cv2.minEnclosingCircle(c)
-            cv2.ellipse(img, ellipse, 3, -1) 
+            '''
+            if len(c) >= 5:
+                ellipse = cv2.fitEllipse(c)
+                cv2.ellipse(img, ellipse, lesion, -1)
+            '''
+            convex = cv2.convexHull(c)
+            cv2.drawContours(img, convex, -1, lesion, -1)
 
         image[i] = img
 
@@ -425,7 +433,20 @@ def save_ellipse_pred_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PAT
             
             img = folder + f"{time}_elli_e{epoch}_i{idx}.png"
             save_image(preds_labels, img)
-            dict_eval[f'ellipse_i{idx}'] = wandb.Image(img)
+            dict_eval[f'elli_prediction_i{idx}'] = wandb.Image(img)
             
     model.train()
     wandb.log(dict_eval)
+
+def save_ellipse_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
+    print("=> Saving validation images ...")
+    dict_val = {}
+    for idx, (_, y) in enumerate(loader):
+        print(y.shape, np.max(y), np.median(y))
+        y = torch.tensor(fit_ellipses_on_image(y)).to(DEVICE)
+        val = label_to_pixel(y)
+        img = f"{folder}{time}_elli_val_i{idx:02d}.png"
+        save_image(val, img)
+        dict_val[f'elli_validation_i{idx:02d}'] = wandb.Image(img)
+    
+    wandb.log(dict_val)

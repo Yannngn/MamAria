@@ -3,6 +3,8 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import warnings
+
 
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
@@ -13,17 +15,21 @@ from munch import munchify, unmunchify
 from yaml import safe_load
 
 from model import UNET
-from early_stopping import EarlyStopping
-from utils import load_checkpoint, get_loaders, save_validation_as_imgs, get_weights
 from train import train_loop
-from predict import predict_fn
+from utils.early_stopping import EarlyStopping
+from utils.save_images import save_validation_as_imgs, save_ellipse_validation_as_imgs
+from utils.loss import TverskyLoss
+from utils.utils import load_checkpoint, get_loaders, get_weights
 
+os.environ['WANDB_MODE'] = 'offline'
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PARENT_DIR = os.path.abspath(__file__)
 BEGIN = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 with open('config.yaml') as f:
     CONFIG = munchify(safe_load(f))
+
+warnings.filterwarnings("ignore")
 
 def main():
     wandb.init(
@@ -33,36 +39,52 @@ def main():
 
     config = wandb.config
 
-    train_transforms, val_transforms, test_transforms = A.Compose([ToTensorV2(),],), A.Compose([ToTensorV2(),],), A.Compose([ToTensorV2(),],)
+    train_transforms = A.Compose([ToTensorV2(),],)
+    val_transforms = A.Compose([ToTensorV2(),],)
 
-    train_loader, val_loader, test_loader = get_loaders(
-                                                CONFIG.PATHS.TRAIN_IMG_DIR,
-                                                CONFIG.PATHS.TRAIN_MASK_DIR,
-                                                CONFIG.PATHS.VAL_IMG_DIR,
-                                                CONFIG.PATHS.VAL_MASK_DIR,
-                                                CONFIG.PATHS.TEST_IMG_DIR,
-                                                CONFIG.PATHS.TEST_MASK_DIR,
-                                                CONFIG.HYPERPARAMETERS.BATCH_SIZE,
-                                                train_transforms,
-                                                val_transforms,
-                                                test_transforms,
-                                                CONFIG.PROJECT.NUM_WORKERS,
-                                                CONFIG.PROJECT.PIN_MEMORY,
-                                            )
+    test_transforms = A.Compose([ToTensorV2(),],)
+    train_loader, val_loader, _ = get_loaders(CONFIG.PATHS.TRAIN_IMG_DIR,
+                                                        CONFIG.PATHS.TRAIN_MASK_DIR,
+                                                        CONFIG.PATHS.VAL_IMG_DIR,
+                                                        CONFIG.PATHS.VAL_MASK_DIR,
+                                                        CONFIG.PATHS.TEST_IMG_DIR,
+                                                        CONFIG.PATHS.TEST_MASK_DIR,
+                                                        config.BATCH_SIZE,
+                                                        train_transforms,
+                                                        val_transforms,
+                                                        test_transforms,
+                                                        6,
+                                                        CONFIG.PROJECT.PIN_MEMORY,
+                                                        )
 
     model = UNET(in_channels = CONFIG.IMAGE.IMAGE_CHANNELS, classes = CONFIG.IMAGE.MASK_LABELS, config = config).to(DEVICE)
     model = nn.DataParallel(model)
 
-    if CONFIG.HYPERPARAMETERS.WEIGHTS:
-        weights = get_weights(CONFIG.PATHS.TRAIN_MASK_DIR, CONFIG.IMAGE.MASK_LABELS, DEVICE)
-        loss_fn = nn.CrossEntropyLoss(weight = weights)
+    if config.WEIGHTS is not None:
+        weights = get_weights(CONFIG.PATHS.TRAIN_MASK_DIR, 
+                              CONFIG.IMAGE.MASK_LABELS, 
+                              multiplier=config.MULTIPLIER,
+                              device=DEVICE)
+
     else:
-        loss_fn = nn.CrossEntropyLoss()
+        weights = None
+    
+    if config.LOSS_FUNCTION == "crossentropy":
+        loss_fn = nn.CrossEntropyLoss(weight = weights)
+    elif config.LOSS_FUNCTION == "tversky":
+        loss_fn = TverskyLoss(alpha=0.5, beta=0.5, weight=weights)
+    else:
+        raise KeyError(f"loss function {config.LOSS_FUNCTION} not recognized.")
     
     if config.OPTIMIZER == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=CONFIG.HYPERPARAMETERS.LEARNING_RATE)
+        optimizer = optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
     elif config.OPTIMIZER == 'sgd':
-        optimizer = optim.SGD(model.parameters(), lr=CONFIG.HYPERPARAMETERS.LEARNING_RATE, momentum=0.9, nesterov=True, weight_decay=0.0001)
+        optimizer = optim.SGD(model.parameters(), 
+                              lr=config.LEARNING_RATE, 
+                              momentum=0.9, 
+                              nesterov=True, 
+                              weight_decay=0.0001
+                              )
     else:
         raise KeyError(f"optimizer {config.OPTIMIZER} not recognized.")
     
@@ -75,9 +97,10 @@ def main():
 
     scaler = torch.cuda.amp.GradScaler()
 
-    stopping = EarlyStopping()
-
-    save_validation_as_imgs(val_loader, time=BEGIN, folder = CONFIG.PATHS.PREDICTIONS_DIR, device = DEVICE)
+    stopping = EarlyStopping(patience=10, wait=30)
+    
+    save_validation_as_imgs(val_loader, time = BEGIN)
+    save_ellipse_validation_as_imgs(val_loader, time = BEGIN)
 
     train_loop(
         train_loader, 
@@ -93,15 +116,6 @@ def main():
         time = BEGIN
     )
 
-    save_validation_as_imgs(test_loader, time=BEGIN, folder = CONFIG.PATHS.SUBMISSIONS_DIR, device = DEVICE)
-
-    predict_fn(
-        test_loader,
-        model,
-        loss_fn,
-        config,
-        time = BEGIN
-    )
-
 if __name__ == "__main__":
     main()
+

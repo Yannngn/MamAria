@@ -1,24 +1,28 @@
 import os
-import torch, wandb
-from tqdm import tqdm
+import torch
+import wandb
+
 from munch import munchify
+from tqdm import tqdm
 from yaml import safe_load
+
+from utils.logs import log_early_stop
+from utils.utils import save_checkpoint
+from validate import validate_fn
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 with open('config.yaml') as f:
     CONFIG = munchify(safe_load(f))
 PATH = os.path. dirname(__file__)
 
-from validate import validate_fn
-from utils import save_predictions_as_imgs, save_checkpoint
-
 def train_fn(loader, model, optimizer, loss_fn, scaler, config):
-    loop = tqdm(loader)
+    loop = tqdm(loader, bar_format='{l_bar}{bar:75}{r_bar}{bar:-75b}')
     closs = 0
 
-    for idx, (data, targets) in enumerate(loop):
+    for _, (data, targets) in enumerate(loop):
         data = data.to(device=DEVICE)
         targets = targets.long().to(device=DEVICE)
+        #print(targets.unique(), "targets")
         
         # forward
         with torch.cuda.amp.autocast():
@@ -40,15 +44,17 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     
     wandb.log({"loss":closs/config.BATCH_SIZE})
 
-    return idx, loss.item()
+    return loss.item()
 
 def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, config, load_epoch=0, time=0):
-    for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.NUM_EPOCHS):
-        print('================================================================================================================================')
-        print('BEGINNING EPOCH', epoch, ':')
-        print('================================================================================================================================')        
-
-        idx, train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
+    #check_accuracy(train_loader, model, device=DEVICE)
+    
+    for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.MAX_NUM_EPOCHS):
+        print(f'='.center(125, '='))
+        print(f'   BEGINNING EPOCH {epoch}:   '.center(125,'='))
+        print(f'='.center(125, '='))
+        print('Training model... \n')
+        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
 
         # save model
         checkpoint = {
@@ -57,20 +63,24 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
         }
-
+        print(f'='.center(125, '='))
+        print("Saving checkpoint ...")
         save_checkpoint(checkpoint)
 
         # check accuracy
-        val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, idx, time)
+        print(f'='.center(125, '='))
+        print("Validating results ... \n")
+        val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time)
+        print(f'='.center(125, '='))
 
         if CONFIG.PROJECT.EARLYSTOP:
             stopping(val_loss, checkpoint, checkpoint_path=PATH+f"/data/checkpoints/{time}_best_checkpoint.pth.tar", epoch = epoch)
             
             if stopping.early_stop:
+                print(f'='.center(125, '='))
                 print("Early Stopping ...")
-                save_predictions_as_imgs(val_loader, model, epoch, folder = CONFIG.PATHS.PREDICTIONS_DIR, device = DEVICE)
-                wandb.finish()
+                log_early_stop(val_loader, model, train_loss, val_loss, epoch, time, device = DEVICE)
                 break
     
-    wandb.finish()
+    print(f'='.center(125, '='))
     print("Training Finished")
