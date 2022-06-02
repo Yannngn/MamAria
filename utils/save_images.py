@@ -89,7 +89,7 @@ def save_ellipse_pred_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PAT
     wandb.log(dict_eval)
 
 def save_ellipse_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
-    print("=> Saving validation images ...")
+    print("=> Saving validation ellipses ...")
     dict_val = {}
     for idx, (_, y) in enumerate(loader):
         y = torch.tensor(fit_ellipses_on_image(y)).to(device)

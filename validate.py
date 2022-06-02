@@ -4,7 +4,7 @@ from munch import munchify
 from tqdm import tqdm
 from yaml import safe_load
 
-from utils.logs import log_predictions
+from loggers.logs import log_predictions
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 with open('config.yaml') as f:
@@ -25,13 +25,9 @@ def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time):
         # update tqdm loop
         loop.set_postfix(loss=loss.item())
 
-        if CONFIG.PROJECT.SCHEDULER:
-            scheduler.step(loss.item())
-   
-    if epoch % CONFIG.PROJECT.VALIDATION_INTERVAL == 0:
-        print(f'='.center(125, '='))
-        print("   Logging and saving predictions...   ".center(125, '='))
-        log_predictions(val_loader, model, train_loss, loss.item(), epoch, time=time)
+        scheduler.step(loss.item())
+        
+    log_predictions(val_loader, model, train_loss, loss.item(), epoch, time=time)
 
     model.train()
     return loss.item()

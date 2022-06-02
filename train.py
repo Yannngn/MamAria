@@ -6,7 +6,7 @@ from munch import munchify
 from tqdm import tqdm
 from yaml import safe_load
 
-from utils.logs import log_early_stop
+from loggers.logs import log_early_stop
 from utils.utils import save_checkpoint
 from validate import validate_fn
 
@@ -15,13 +15,16 @@ with open('config.yaml') as f:
     CONFIG = munchify(safe_load(f))
 PATH = os.path. dirname(__file__)
 
-def train_fn(loader, model, optimizer, loss_fn, scaler, config):
+def train_fn(loader, model, optimizer, loss_fn, scaler, config, device=DEVICE):
+    print(f'='.center(125, '='))
+    print('Training model... \n')
+    
     loop = tqdm(loader, bar_format='{l_bar}{bar:75}{r_bar}{bar:-75b}')
     closs = 0
 
     for _, (data, targets) in enumerate(loop):
-        data = data.to(device=DEVICE)
-        targets = targets.long().to(device=DEVICE)
+        data = data.to(device)
+        targets = targets.long().to(device)
         #print(targets.unique(), "targets")
         
         # forward
@@ -46,15 +49,12 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
 
     return loss.item()
 
-def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, config, load_epoch=0, time=0):
-    #check_accuracy(train_loader, model, device=DEVICE)
-    
-    for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.MAX_NUM_EPOCHS):
+def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, config, load_epoch=0, time=0, device=DEVICE):  
+    for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.MAX_NUM_EPOCHS):      
         print(f'='.center(125, '='))
-        print(f'   BEGINNING EPOCH {epoch}:   '.center(125,'='))
-        print(f'='.center(125, '='))
-        print('Training model... \n')
-        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
+        print(f'   BEGINNING EPOCH {epoch}:   '.center(125,'='))       
+        
+        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config, device)
 
         # save model
         checkpoint = {
@@ -63,24 +63,24 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
         }
-        print(f'='.center(125, '='))
-        print("Saving checkpoint ...")
+                
         save_checkpoint(checkpoint)
 
         # check accuracy
+        
         print(f'='.center(125, '='))
         print("Validating results ... \n")
+        
         val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time)
-        print(f'='.center(125, '='))
-
-        if CONFIG.PROJECT.EARLYSTOP:
-            stopping(val_loss, checkpoint, checkpoint_path=PATH+f"/data/checkpoints/{time}_best_checkpoint.pth.tar", epoch = epoch)
-            
-            if stopping.early_stop:
-                print(f'='.center(125, '='))
-                print("Early Stopping ...")
-                log_early_stop(val_loader, model, train_loss, val_loss, epoch, time, device = DEVICE)
-                break
+        
+        if not CONFIG.PROJECT.EARLYSTOP: continue
+        
+        stopping(val_loss, checkpoint, checkpoint_path=PATH+f"/data/checkpoints/{time}_best_checkpoint.pth.tar", epoch=epoch)
+        
+        if stopping.early_stop: break
+        
+    log_early_stop(val_loader, model, train_loss, val_loss, epoch, time, device)
+        
     
     print(f'='.center(125, '='))
     print("Training Finished")

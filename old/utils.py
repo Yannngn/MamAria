@@ -12,7 +12,7 @@ import wandb
 from datetime import datetime
 import json
 
-from utils.dataset import PhantomDataset
+from datasets.dataset import PhantomDataset
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 with open('config.yaml') as f:

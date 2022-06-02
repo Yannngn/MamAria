@@ -2,13 +2,13 @@ import cv2
 import numpy as np
 import torch
 import os
-from torch.utils.data import DataLoader
 
 from munch import munchify
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from yaml import safe_load
 
-from utils.dataset import PhantomDataset
+from datasets.dataset import PhantomDataset
 from utils.metrics import evaluate_segmentation
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -17,33 +17,28 @@ with open('config.yaml') as f:
 
 def check_accuracy(loader, model, device=DEVICE):
     loop = tqdm(loader)
-    num_correct = 0
-    num_pixels = 0
-    
+
     model.eval()
     with torch.no_grad():
         for x, y in loop:
             x = x.to(device)
             y = y.to(device)
             preds = model(x)
-            
-            y_ = y.unsqueeze(1)
 
-            preds_labels = torch.argmax(preds, 1).unsqueeze(1) #(14, 1, 512, 301) -> flatten (2157568,)
-                
-            num_correct += (preds_labels == y_).sum()
-            num_pixels += torch.numel(preds_labels)
-
-            dict_eval = {}#evaluate_segmentation(preds, y, score_averaging = None)
+            dict_eval = evaluate_segmentation(preds, y, score_averaging = None)
+    
     model.train()
 
-    return num_correct, num_pixels, dict_eval
+    return dict_eval
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
+    print(f'='.center(125, '='))
+    print("Saving checkpoint ...")
     torch.save(state, filename)
 
 def load_checkpoint(checkpoint, model, optimizer, scheduler):
-    print("=> Loading checkpoint")
+    print(f'='.center(125, '='))
+    print("Loading checkpoint ...")
     try:
         model.load_state_dict(checkpoint["state_dict"])
         if optimizer is not None:
@@ -116,17 +111,16 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = CONFIG.HYPERPA
     mask_files = [os.path.join(mask_dir, file) for file in os.listdir(mask_dir) if file.endswith('.png')]
     
     for mask in mask_files:
+        temp = []
         mask = cv2.imread(mask)
     
-        if total_pixels == 0:
-            total_pixels = mask.shape[1] * mask.shape[2]
+        if total_pixels == 0: total_pixels = mask.shape[1] * mask.shape[2]
 
-        temp = []
-        
-        for i in range(num_labels):
-            temp.append((mask == i).sum())
+        for i in range(num_labels): temp.append((mask == i).sum())
         
         weights += temp
+    
     den = weights / (total_pixels * len(mask))
     out = np.divide(multiplier, den, out = np.zeros_like(multiplier, dtype = float), where = den!=0)
+    
     return torch.tensor(out).float().to(device)

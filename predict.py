@@ -13,8 +13,8 @@ from yaml import safe_load
 
 from model import UNET
 from utils.save_images import save_test_as_imgs
-from utils.logs import log_submission
-from utils.loss import TverskyLoss
+from loggers.logs import log_submission
+from losses.loss import TverskyLoss
 from utils.utils import get_loaders, get_weights, load_checkpoint
 
 os.environ['WANDB_MODE'] = 'offline'
