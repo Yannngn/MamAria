@@ -13,11 +13,11 @@ with open('config.yaml') as f:
 
 def save_predictions_as_imgs(predictions, step, epoch, dict_eval, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0):
     print("=> Saving predictions as images ...")
-    
-    preds_labels = label_to_pixel(predictions)
-    img = folder + f"{time}_pred_e{epoch}_i{step}.png"
-    save_image(preds_labels, img)
-    dict_eval[f'prediction_i{step}'] = wandb.Image(img)
+    preds_labels = torch.argmax(predictions, 1)
+    preds_labels = label_to_pixel(preds_labels)
+    img_path = folder + f"{time}_pred_e{epoch}_i{step}.png"
+    save_image(preds_labels, img_path)
+    dict_eval[f'prediction_i{step}'] = wandb.Image(img_path)
 
     wandb.log(dict_eval)
 
