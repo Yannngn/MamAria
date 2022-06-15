@@ -49,7 +49,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config, device=DEVICE):
 
     return loss.item()
 
-def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, config, load_epoch=0, time=0, device=DEVICE):  
+def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, global_metrics, label_metrics, config, load_epoch=0, time=0, device=DEVICE):  
     for epoch in range(load_epoch, CONFIG.HYPERPARAMETERS.MAX_NUM_EPOCHS):      
         print(f'='.center(125, '='))
         print(f'   BEGINNING EPOCH {epoch}:   '.center(125,'='))       
@@ -71,7 +71,7 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
         print(f'='.center(125, '='))
         print("Validating results ... \n")
         
-        val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time)
+        val_loss = validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time, global_metrics, label_metrics)
         
         if not CONFIG.PROJECT.EARLYSTOP: continue
         

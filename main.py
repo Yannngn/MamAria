@@ -3,7 +3,10 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchmetrics
 import warnings
+
+print(torchmetrics.__version__)
 
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
@@ -42,6 +45,29 @@ def main():
     val_transforms = A.Compose([ToTensorV2(),],)
     test_transforms = A.Compose([ToTensorV2(),],)
     
+    global_metrics = [
+        torchmetrics.Accuracy(num_classes=CONFIG.IMAGE.MASK_LABELS).to(DEVICE),
+        torchmetrics.F1(num_classes=CONFIG.IMAGE.MASK_LABELS, mdmc_average='global').to(DEVICE),
+        torchmetrics.Precision(num_classes=CONFIG.IMAGE.MASK_LABELS, mdmc_average='global').to(DEVICE),
+        torchmetrics.Recall(num_classes=CONFIG.IMAGE.MASK_LABELS, mdmc_average='global').to(DEVICE),
+        torchmetrics.Specificity(num_classes=CONFIG.IMAGE.MASK_LABELS, mdmc_average='global').to(DEVICE),
+    ]
+
+    global_metrics_names = ["accuracy", "f1", "precision", "recall", "specificity"]
+
+    label_metrics = [
+        torchmetrics.Accuracy(num_classes=CONFIG.IMAGE.MASK_LABELS, average=None, mdmc_average='global').to(DEVICE),
+        torchmetrics.F1(num_classes=CONFIG.IMAGE.MASK_LABELS, average=None, mdmc_average='global').to(DEVICE),
+        torchmetrics.Precision(num_classes=CONFIG.IMAGE.MASK_LABELS, average=None, mdmc_average='global').to(DEVICE),
+        torchmetrics.Recall(num_classes=CONFIG.IMAGE.MASK_LABELS, average=None, mdmc_average='global').to(DEVICE),
+        torchmetrics.Specificity(num_classes=CONFIG.IMAGE.MASK_LABELS, average=None, mdmc_average='global').to(DEVICE),
+    ]
+      
+    label_metrics_names = ["accuracy", "f1", "precision", "recall", "specificity"]
+    
+    global_metrics = dict(zip(global_metrics_names, global_metrics))
+    label_metrics = dict(zip(label_metrics_names, label_metrics))
+    
     train_loader, val_loader, _ = get_loaders(CONFIG.PATHS.TRAIN_IMG_DIR,
                                                         CONFIG.PATHS.TRAIN_MASK_DIR,
                                                         CONFIG.PATHS.VAL_IMG_DIR,
@@ -52,7 +78,7 @@ def main():
                                                         train_transforms,
                                                         val_transforms,
                                                         test_transforms,
-                                                        6,
+                                                        0,
                                                         CONFIG.PROJECT.PIN_MEMORY,
                                                         )
 
@@ -109,6 +135,8 @@ def main():
         loss_fn, 
         scaler, 
         stopping,
+        global_metrics, 
+        label_metrics,
         config,
         load_epoch,
         time = BEGIN

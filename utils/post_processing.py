@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
-from sklearn.compose import TransformedTargetRegressor
 import torch
-import torchvision.transforms as transforms
 
 from munch import munchify
 from yaml import safe_load
@@ -11,7 +9,6 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 with open('config.yaml') as f:
     CONFIG = munchify(safe_load(f))
 
-import matplotlib.pyplot as plt
 
 def label_to_pixel(preds, col='l'):
     if col == 'l':

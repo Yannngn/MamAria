@@ -11,21 +11,14 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 with open('config.yaml') as f:
     CONFIG = munchify(safe_load(f))
 
-def save_predictions_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
+def save_predictions_as_imgs(predictions, step, epoch, dict_eval, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0):
     print("=> Saving predictions as images ...")
     
-    model.eval()
-    
-    with torch.no_grad():    
-        for idx, (x, _) in enumerate(loader):
-            x = x.to(device)
-            preds_labels = torch.argmax(model(x), 1)
-            preds_labels = label_to_pixel(preds_labels)
-            img = folder + f"{time}_pred_e{epoch}_i{idx}.png"
-            save_image(preds_labels, img)
-            dict_eval[f'prediction_i{idx}'] = wandb.Image(img)
-            
-    model.train()
+    preds_labels = label_to_pixel(predictions)
+    img = folder + f"{time}_pred_e{epoch}_i{step}.png"
+    save_image(preds_labels, img)
+    dict_eval[f'prediction_i{step}'] = wandb.Image(img)
+
     wandb.log(dict_eval)
 
 def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMISSIONS_DIR, time=0, device=DEVICE):

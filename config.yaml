@@ -1,7 +1,7 @@
 PROJECT:
   NUM_WORKERS: 12
-  PROJECT_NAME: "2022_metrics_fix"
-  PROJECT_TEAM: 'tail-upenn'
+  PROJECT_NAME: "upenn_test"
+  PROJECT_TEAM: None #'tail-upenn'
   SCHEDULER: True
   EARLYSTOP: True
   PIN_MEMORY: True
