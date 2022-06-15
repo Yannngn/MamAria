@@ -1,4 +1,3 @@
-
 import torch
 import wandb
 
@@ -16,6 +15,7 @@ def save_predictions_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PATH
     print("=> Saving predictions as images ...")
     
     model.eval()
+    
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
@@ -32,6 +32,7 @@ def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMIS
     print("=> Saving submission images ...")
     
     model.eval()
+    
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
@@ -47,26 +48,32 @@ def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMIS
 
 def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving validation images ...")
-    dict_val = {}
-    for idx, (_, y) in enumerate(loader):
-        y = y.to(device)
-        val = (y / y.max()).unsqueeze(1)
-        img = f"{folder}{time}_val_i{idx:02d}.png"
-        save_image(val, img)
-        dict_val[f'validation_i{idx:02d}'] = wandb.Image(img)
     
+    dict_val = {}
+    
+    with torch.no_grad():
+        for idx, (_, y) in enumerate(loader):
+            y = y.to(device)
+            val = (y / y.max()).unsqueeze(1)
+            img = f"{folder}{time}_val_i{idx:02d}.png"
+            save_image(val, img)
+            dict_val[f'validation_i{idx:02d}'] = wandb.Image(img)
+        
     wandb.log(dict_val)
 
 def save_test_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving test images ...")
+    
     dict_val = {}
-    for idx, (_, y) in enumerate(loader):
-        y = y.to(device)
-        val = (y / y.max()).unsqueeze(1)
-        for j in range(y.size(0)):
-            img = f"{folder}{time}_test_i{idx:02d}_p{j:02d}.png"
-            save_image(val, img)
-            dict_val[f'test_i{idx:02d}_p{j:02d}'] = wandb.Image(img)
+    
+    with torch.no_grad(): 
+        for idx, (_, y) in enumerate(loader):
+            y = y.to(device)
+            val = (y / y.max()).unsqueeze(1)
+            for j in range(y.size(0)):
+                img = f"{folder}{time}_test_i{idx:02d}_p{j:02d}.png"
+                save_image(val, img)
+                dict_val[f'test_i{idx:02d}_p{j:02d}'] = wandb.Image(img)
     
     wandb.log(dict_val)
 
@@ -74,6 +81,7 @@ def save_ellipse_pred_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PAT
     print("=> Saving ellipses as images ...")
     
     model.eval()
+    
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
@@ -90,13 +98,16 @@ def save_ellipse_pred_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PAT
 
 def save_ellipse_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving validation ellipses ...")
+    
     dict_val = {}
-    for idx, (_, y) in enumerate(loader):
-        y = torch.tensor(fit_ellipses_on_image(y)).to(device)
-        val = label_to_pixel(y)
-        img = f"{folder}{time}_elli_val_i{idx:02d}.png"
-        save_image(val, img)
-        dict_val[f'elli_validation_i{idx:02d}'] = wandb.Image(img)
+    
+    with torch.no_grad(): 
+        for idx, (_, y) in enumerate(loader):
+            y = torch.tensor(fit_ellipses_on_image(y)).to(device)
+            val = label_to_pixel(y)
+            img = f"{folder}{time}_elli_val_i{idx:02d}.png"
+            save_image(val, img)
+            dict_val[f'elli_validation_i{idx:02d}'] = wandb.Image(img)
     
     wandb.log(dict_val)
 
@@ -104,6 +115,7 @@ def save_confidence_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PATHS
     print("=> Saving confidence of prediction as images ...")
     
     model.eval()
+    
     with torch.no_grad():    
         for idx, (x, _) in enumerate(loader):
             x = x.to(device)
