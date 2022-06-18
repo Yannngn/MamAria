@@ -1,17 +1,13 @@
 import torch
 import wandb
 
-from munch import munchify
 from tqdm import tqdm
-from yaml import safe_load
 
 from loggers.logs import log_predictions
+from utils.utils import get_device
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-with open('config.yaml') as f:
-    CONFIG = munchify(safe_load(f))
-
-def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time, global_metrics, label_metrics):
+def validate_fn(val_loader, model, loss_fn, scheduler, epoch, time, global_metrics, label_metrics, config):
+    device = get_device(config)
     print(f'='.center(125, '='))
     print("   Logging and saving predictions...   ".center(125, '='))    
     
@@ -19,8 +15,8 @@ def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time, 
     model.eval()
     vloss = 0.
     for idx, (data, targets) in enumerate(loop):
-        data = data.to(DEVICE)
-        targets = targets.long().to(DEVICE)
+        data = data.to(device)
+        targets = targets.long().to(device)
 
         with torch.no_grad():
             predictions = model(data)
@@ -33,15 +29,16 @@ def validate_fn(val_loader, model, loss_fn, scheduler, train_loss, epoch, time, 
         wandb.log({"batch validation loss":loss.item()})
         vloss += loss.item()
 
-        if ((epoch * len(val_loader) + idx) % CONFIG.PROJECT.VALIDATION_INTERVAL == 0):
-            log_predictions(data, targets, predictions, global_metrics, label_metrics, idx, epoch, time=time)
+        if ((epoch * len(val_loader) + idx) % config.project.validation_interval == 0):
+            log_predictions(data, targets, predictions, global_metrics, label_metrics, config, idx, epoch, time=time)
 
     loop.close()
-    wandb.log({"validation loss":vloss/CONFIG.HYPERPARAMETERS.BATCH_SIZE})
+    wandb.log({"validation loss":vloss/config.hyperparameters.batch_size})
     model.train()
     return loss.item()
 
-def early_stop_validation(val_loader, model, global_metrics, label_metrics, epoch, time=0):
+def early_stop_validation(val_loader, model, global_metrics, label_metrics, config, epoch, time=0):
+    device = get_device(config)
     print(f'='.center(125, '='))
     print("Early Stopping ...")
     
@@ -49,12 +46,12 @@ def early_stop_validation(val_loader, model, global_metrics, label_metrics, epoc
     model.eval()
     
     for idx, (data, targets) in enumerate(loop):
-        data = data.to(DEVICE)
-        targets = targets.long().to(DEVICE)
+        data = data.to(device)
+        targets = targets.long().to(device)
 
         with torch.no_grad():
             predictions = model(data)
         
-        log_predictions(data, targets, predictions, global_metrics, label_metrics, idx, epoch, time=time)
+        log_predictions(data, targets, predictions, global_metrics, label_metrics, config, idx, epoch, time=time)
     
     loop.close()

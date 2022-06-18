@@ -10,9 +10,9 @@ with open('config.yaml') as f:
     CONFIG = munchify(safe_load(f))
 
 
-def label_to_pixel(preds, col='l'):
+def label_to_pixel(preds, config, col='l'):
     if col == 'l':
-        preds = preds / (CONFIG.IMAGE.MASK_LABELS - 1) #0, 1, 2 
+        preds = preds / (config.image.mask_labels - 1) #0, 1, 2 
         preds = preds.unsqueeze(1).float()
         return preds
 

@@ -1,44 +1,54 @@
-PROJECT:
-  NUM_WORKERS: 12
-  PROJECT_NAME: "6_2022_test"
-  PROJECT_TEAM: 'tail-upenn'
-  SCHEDULER: True
-  EARLYSTOP: True
-  PIN_MEMORY: True
-  LOAD_MODEL: False
-  VALIDATION_INTERVAL: 20
+project:
+    device: 'gpu'
+    num_workers: 12
+    project_name: "6_2022_test"
+    project_team: 'tail-upenn'
+    max_num_epochs: 5
+    weights: True
+    scheduler: True
+    earlystop: True
+    pin_memory: True
+    load_model: False
+    validation_interval: 20
+    optimizer: 'adam'
+    loss_function: 'crossentropy'
 
-HYPERPARAMETERS:
-  LEARNING_RATE: .0003
-  BATCH_SIZE: 14
-  MAX_NUM_EPOCHS: 250
-  OPTIMIZER: 'adam'
-  LOSS_FUNCTION: 'crossentropy'
-  MAX_LAYER_SIZE: 1024
-  MIN_LAYER_SIZE: 64
-  WEIGHTS: True
-  MULTIPLIER: [1,1,1,1]
+hyperparameters:
+    learning_rate: .0003
+    momentum: 0.9
+    weight_decay: .0001
+    nesterov: True
+    batch_size: 14
+    multiplier: [1,1,1,1]
+    t_alpha: 1
+    f_alpha: 1
+    beta: .5
+    gamma: 2
 
-IMAGE:
-  IMAGE_HEIGHT: 600 #512
-  IMAGE_WIDTH: 360 #301
-  IMAGE_CHANNELS: 1
-  MASK_CHANNELS: 1
-  MASK_LABELS: 4
-  PHANTOM_FORMAT: 'tiff'
-  MASK_FORMAT: 'png'
-  LABELS: 
-    0: 'background' 
-    1: 'low_risk'
-    2: 'moderate_risk'
-    3: 'high_risk'
+model:
+    max_layer_size: 1024
+    min_layer_size: 64
 
-PATHS:
-  TRAIN_IMG_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/train/phantom/"
-  TRAIN_MASK_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/train/mask/"
-  VAL_IMG_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/val/phantom/"
-  VAL_MASK_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/val/mask/"
-  TEST_IMG_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/test/phantom/"
-  TEST_MASK_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/test/mask/"
-  PREDICTIONS_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/predictions/"
-  SUBMISSIONS_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/submissions/"
+image:
+    image_height: 600 #512
+    image_width: 360 #301
+    image_channels: 1
+    mask_channels: 1
+    mask_labels: 4
+    phantom_format: 'tiff'
+    mask_format: 'png'
+    labels: 
+        0: 'background' 
+        1: 'low_risk'
+        2: 'moderate_risk'
+        3: 'high_risk'
+
+paths:
+    train_img_dir: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/train/phantom/"
+    train_mask_dir: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/train/mask/"
+    val_img_dir: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/val/phantom/"
+    val_mask_dir: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/val/mask/"
+    test_img_dir: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/test/phantom/"
+    test_mask_dir: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/test/mask/"
+    predictions_dir: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/predictions/"
+    submissions_dir: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/submissions/"

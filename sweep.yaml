@@ -1,11 +1,21 @@
 program: main.py
-method: grid
+project: "6_2022_sweep"
+entity: 'tail-upenn'
+
+method: bayes
 metric:
-  name: loss_val
-  goal: minimize
+    name: validation loss
+    goal: minimize
+
 parameters:
-  LEARNING_RATE:
-    values: [0.0001, 0.0003, 0.00001]
-  MULTIPLIER:
-    values: [[1,1,1,1], [1,1,1,2], [1,1,2,2], [1,1,2,1] ]
+    optimizer:
+        value: adam #[adam, sgd]
+
+    loss_function:
+        values: [crossentropy, focal, tversky]
+
+    adam_learning_rate:
+        min: .000001
+        max: .001
+
   

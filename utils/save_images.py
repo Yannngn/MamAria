@@ -1,25 +1,19 @@
 import torch
 import wandb
 
-from munch import munchify
 from torchvision.utils import save_image
-from yaml import safe_load
 
-from utils.post_processing import label_to_pixel, fit_ellipses_on_image, get_confidence_of_prediction
-from utils.utils import wandb_mask
+from utils.post_processing import label_to_pixel#, fit_ellipses_on_image, get_confidence_of_prediction
+from utils.utils import get_device, wandb_mask
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-with open('config.yaml') as f:
-    CONFIG = munchify(safe_load(f))
-
-def save_predictions_as_imgs(data, label, predictions, step, epoch, dict_eval, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0):
-    img_path = folder + f"{time}_pred_e{epoch}_i{step}.png"
+def save_predictions_as_imgs(data, label, predictions, config, step, epoch, dict_eval, time=0):
+    img_path = config.paths.predictions_dir + f"{time}_pred_e{epoch}_i{step}.png"
     
     if step == 0:
         print("=> Saving predictions as images ...")
         
     preds_labels = torch.argmax(predictions, 1)
-    preds_img = label_to_pixel(preds_labels)
+    preds_img = label_to_pixel(preds_labels, config)
     
     save_image(preds_img, img_path)
     
@@ -30,13 +24,13 @@ def save_predictions_as_imgs(data, label, predictions, step, epoch, dict_eval, f
         local_label = label[j].cpu().numpy()
         local_pred = preds_labels[j].cpu().numpy()
         
-        wandb_image = wandb_mask(local_data, local_label, CONFIG.IMAGE.LABELS, local_pred)
+        wandb_image = wandb_mask(local_data, local_label, config.image.labels, local_pred)
         
         dict_eval[f'image_{_id:02d}'] = wandb_image
 
     wandb.log(dict_eval)
 
-def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMISSIONS_DIR, time=0, device=DEVICE):
+'''def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMISSIONS_DIR, time=0, device=DEVICE):
     print("=> Saving submission images ...")
     
     model.eval()
@@ -58,16 +52,17 @@ def save_submission_as_imgs(loader, model, dict_subm, folder=CONFIG.PATHS.SUBMIS
                 wandb_image = wandb_mask(local_data, local_label, CONFIG.IMAGE.LABELS, local_pred)
                 dict_subm[f'submission_i{idx:02d}_p{j:02d}'] = wandb_image
             
-                wandb.log(dict_subm)
+                wandb.log(dict_subm)'''
 
-def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
+def save_validation_as_imgs(loader, config, time=0):
+    device = get_device(config)
     print("=> Saving validation images ...")
     
     dict_val = {}
     
     with torch.no_grad():
         for idx, (x, y) in enumerate(loader):
-            img = f"{folder}{time}_val_i{idx:02d}.png"
+            img = f"{config.paths.predictions_dir}{time}_val_i{idx:02d}.png"
             
             y = y.to(device)
             val = (y / y.max()).unsqueeze(1)
@@ -80,13 +75,12 @@ def save_validation_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0,
                 local_data = x[j].squeeze(0).cpu().numpy()
                 local_label = y[j].cpu().numpy()
 
-                wandb_image = wandb_mask(local_data, local_label, CONFIG.IMAGE.LABELS)
-                
+                wandb_image = wandb_mask(local_data, local_label, config.image.labels)                
                 dict_val[f'image_{_id:02d}'] = wandb_image
         
     wandb.log(dict_val)
 
-def save_test_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
+'''def save_test_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving test images ...")
     
     dict_val = {}
@@ -151,4 +145,4 @@ def save_confidence_as_imgs(loader, model, epoch, dict_eval, folder=CONFIG.PATHS
             save_image(lesion_confidence, img)
             dict_eval[f'confidence_i{idx}'] = wandb.Image(img)
             
-    model.train()
+    model.train()'''

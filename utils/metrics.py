@@ -1,8 +1,6 @@
 import numpy as np
 import torch
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
 def check_accuracy(predictions, targets, global_metrics, label_metrics):
     dict_eval = evaluate_segmentation(predictions, targets, global_metrics, label_metrics)
 

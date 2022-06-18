@@ -8,15 +8,17 @@ import torchvision.transforms.functional as TF
 
 class UNET(nn.Module):
     
-    def __init__(self, in_channels:int, classes:int, config):
+    def __init__(self, config):
         super(UNET, self).__init__()
 
-        self.max_layer_size = config.MAX_LAYER_SIZE
-        self.min_layer_size = config.MIN_LAYER_SIZE
-        mls = config.MAX_LAYER_SIZE 
+        self.max_layer_size = config.model.max_layer_size
+        self.min_layer_size = config.model.min_layer_size
+        mls = config.model.max_layer_size
+        in_channels = config.image.image_channels
+        classes = config.image.mask_labels
         
-        layers = [in_channels, config.MIN_LAYER_SIZE]
-        while(mls > config.MIN_LAYER_SIZE):
+        layers = [in_channels, config.model.min_layer_size]
+        while(mls > config.model.min_layer_size):
             layers.insert(2, mls)
             mls = int(mls * .5)
         

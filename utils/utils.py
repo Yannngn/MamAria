@@ -1,16 +1,24 @@
+import albumentations as A
 import cv2
 import numpy as np
 import torch
+import torchmetrics
+
 import os
 import wandb
 
-from munch import munchify
+from albumentations.pytorch import ToTensorV2
+from albumentations.augmentations.geometric import resize
+from torch import nn
+from torch import optim
+from torchgeometry import losses
 from torch.utils.data import DataLoader
-from yaml import safe_load
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-with open('config.yaml') as f:
-    CONFIG = munchify(safe_load(f))
+def get_device(config):
+    if config['project']['device'] == 'gpu':
+        return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    
+    return torch.device("cpu")
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print(f'='.center(125, '='))
@@ -38,11 +46,21 @@ def load_checkpoint(checkpoint, model, optimizer, scheduler):
     
     return checkpoint["epoch"]
 
-def get_loaders(train_dir, train_maskdir, val_dir, val_maskdir, test_dir, test_maskdir, batch_size, 
-                train_transform, val_transform, test_transform, num_workers=4, pin_memory=True):
+def get_loaders(config, train_transform, val_transform, test_transform):
+    if config.image.phantom_format == 'dcm': from datasets.dataset import PhantomDCMDataset as PhantomDataset
+    elif config.image.phantom_format == 'tiff' : from datasets.dataset import PhantomTIFFDataset as PhantomDataset
+    
+    train_dir = config.paths.train_img_dir
+    train_maskdir = config.paths.train_mask_dir
+    val_dir = config.paths.val_img_dir
+    val_maskdir = config.paths.val_mask_dir
+    test_dir = config.paths.test_img_dir
+    test_maskdir = config.paths.test_mask_dir
 
-    if CONFIG.IMAGE.PHANTOM_FORMAT == 'dcm': from datasets.dataset import PhantomDCMDataset as PhantomDataset
-    elif CONFIG.IMAGE.PHANTOM_FORMAT == 'tiff' : from datasets.dataset import PhantomTIFFDataset as PhantomDataset
+    num_workers = config.project.num_workers
+    pin_memory = config.project.pin_memory
+
+    batch_size = config.hyperparameters.batch_size
 
     train_ds = PhantomDataset(
         image_dir=train_dir,
@@ -72,28 +90,27 @@ def get_loaders(train_dir, train_maskdir, val_dir, val_maskdir, test_dir, test_m
         shuffle=False,
     )
 
-    if test_dir is not None:
-        test_ds = PhantomDataset(
-            image_dir=test_dir,
-            mask_dir=test_maskdir,
-            transform=test_transform,
-        )
+    test_ds = PhantomDataset(
+        image_dir=test_dir,
+        mask_dir=test_maskdir,
+        transform=test_transform,
+    )
 
-        test_loader = DataLoader(
-            test_ds,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            pin_memory=pin_memory,
-            shuffle=False,
-        )
-        
-        return train_loader, val_loader, test_loader
+    test_loader = DataLoader(
+        test_ds,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        shuffle=False,
+    )
     
-    return train_loader, val_loader
+    return train_loader, val_loader, test_loader
 
-def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = CONFIG.HYPERPARAMETERS.MULTIPLIER):
-    weights = np.zeros(num_labels)
-    multiplier = np.array(multiplier)
+def get_weights(config):
+    device = get_device(config)
+    weights = np.zeros(config.image.mask_labels)
+    multiplier = np.array(config.hyperparameters.multiplier)
+    mask_dir = config.paths.train_mask_dir
     total_pixels = 0
     mask_files = [os.path.join(mask_dir, file) for file in os.listdir(mask_dir) if file.endswith('.png')]
     
@@ -103,7 +120,7 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = CONFIG.HYPERPA
     
         if total_pixels == 0: total_pixels = mask.shape[1] * mask.shape[2]
 
-        for i in range(num_labels): temp.append((mask == i).sum())
+        for i in range(config.image.mask_labels): temp.append((mask == i).sum())
         
         weights += temp
     
@@ -112,6 +129,90 @@ def get_weights(mask_dir, num_labels, device=DEVICE, multiplier = CONFIG.HYPERPA
     
     return torch.tensor(out).float().to(device)
 
+def get_loss_function(config, weights):
+    if config.project.loss_function == "crossentropy":
+        return nn.CrossEntropyLoss(weight = weights)
+    elif config.project.loss_function == "tversky":
+        return losses.TverskyLoss(alpha=config.hyperparameters.t_alpha, beta=config.hyperparameters.beta)
+    elif config.project.loss_function == "focal":
+        return losses.FocalLoss(config.hyperparameters.f_alpha, config.hyperparameters.gamma, reduction='mean')
+    else:
+        raise KeyError(f"loss function {config.project.loss_function} not recognized.")
+
+def get_optimizer(config, parameters):
+    if config.project.optimizer == 'adam':
+        return optim.Adam(parameters, lr=config.hyperparameters.learning_rate)
+    elif config.project.optimizer == 'sgd':
+        return optim.SGD(parameters, 
+                         lr=config.hyperparameters.learning_rate, 
+                         momentum=config.hyperparameters.learning_rate, 
+                         nesterov=config.hyperparameters.nesterov, 
+                         weight_decay=config.hyperparameters.weight_decay)
+    else:
+        raise KeyError(f"optimizer {config.project.optimizer} not recognized.")
+
+def get_metrics(config):
+    num_classes = config.image.mask_labels
+    average = 'weighted' if config.project.weights else 'micro'
+
+    device = get_device(config)
+
+    global_metrics = [
+        torchmetrics.Accuracy(num_classes=num_classes, mdmc_average='global').to(device),
+        torchmetrics.Accuracy(num_classes=num_classes, average=average, mdmc_average='global').to(device),
+        torchmetrics.F1Score(num_classes=num_classes, average=average, mdmc_average='global').to(device),
+        torchmetrics.Precision(num_classes=num_classes, average=average, mdmc_average='global').to(device),
+        torchmetrics.Recall(num_classes=num_classes, average=average, mdmc_average='global').to(device),
+        torchmetrics.Specificity(num_classes=num_classes, average=average, mdmc_average='global').to(device),
+        torchmetrics.JaccardIndex(num_classes=num_classes, average=average, mdmc_average='global').to(device)
+    ]
+
+    global_metrics_names = ["global accuracy", "weighted accuracy", "f1", "precision", "recall", "specificity", 'jaccard']
+
+    label_metrics = [
+        torchmetrics.Accuracy(num_classes=num_classes, average=None, mdmc_average='global').to(device),
+        torchmetrics.F1Score(num_classes=num_classes, average=None, mdmc_average='global').to(device),
+        torchmetrics.Precision(num_classes=num_classes, average=None, mdmc_average='global').to(device),
+        torchmetrics.Recall(num_classes=num_classes, average=None, mdmc_average='global').to(device),
+        torchmetrics.Specificity(num_classes=num_classes, average=None, mdmc_average='global').to(device),
+        torchmetrics.JaccardIndex(num_classes=num_classes, average=None, mdmc_average='global').to(device)
+    ]
+      
+    label_metrics_names = ["accuracy", "f1", "precision", "recall", "specificity", 'jaccard']
+    
+    global_dict = dict(zip(global_metrics_names, global_metrics))
+    label_dict = dict(zip(label_metrics_names, label_metrics))
+
+    return global_dict, label_dict
+
+def get_transforms(config):
+    fmt = config.image.phantom_format
+    assert fmt == 'dcm' or fmt == 'tiff', f'image format {fmt} is not accepted'
+    
+    if fmt == 'dcm':
+        height, width = config.image.image_height, config.image.image_width
+        train_transforms = A.Compose([
+            A.augmentations.crops.transforms.Crop(1016, 292, 2816, 3292), # 3584, 2816 -> 3000, 1800
+            resize.Resize(height, width, interpolation=cv2.INTER_LANCZOS4), 
+            ToTensorV2(),],)
+        val_transforms = A.Compose([
+            A.augmentations.crops.transforms.Crop(1016, 292, 2816, 3292),
+            resize.Resize(height, width, interpolation=cv2.INTER_LANCZOS4), 
+            ToTensorV2(),],)
+        test_transforms = A.Compose([
+            A.augmentations.crops.transforms.Crop(1016, 292, 2816, 3292),
+            resize.Resize(height, width, interpolation=cv2.INTER_LANCZOS4), 
+            ToTensorV2(),],)
+
+        return train_transforms, val_transforms, test_transforms
+    
+    elif fmt == 'tiff' :
+        train_transforms = A.Compose([ToTensorV2(),],)
+        val_transforms = A.Compose([ToTensorV2(),],)
+        test_transforms = A.Compose([ToTensorV2(),],)
+        
+        return train_transforms, val_transforms, test_transforms
+        
 def wandb_mask(data, true_mask, labels, prediction = None):
     
     if prediction is not None:
