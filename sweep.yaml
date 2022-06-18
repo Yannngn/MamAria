@@ -1,0 +1,11 @@
+program: main.py
+method: grid
+metric:
+  name: loss_val
+  goal: minimize
+parameters:
+  LEARNING_RATE:
+    values: [0.0001, 0.0003, 0.00001]
+  MULTIPLIER:
+    values: [[1,1,1,1], [1,1,1,2], [1,1,2,2], [1,1,2,1] ]
+  

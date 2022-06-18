@@ -1,0 +1,44 @@
+PROJECT:
+  NUM_WORKERS: 12
+  PROJECT_NAME: "6_2022_test"
+  PROJECT_TEAM: 'tail-upenn'
+  SCHEDULER: True
+  EARLYSTOP: True
+  PIN_MEMORY: True
+  LOAD_MODEL: False
+  VALIDATION_INTERVAL: 20
+
+HYPERPARAMETERS:
+  LEARNING_RATE: .0003
+  BATCH_SIZE: 14
+  MAX_NUM_EPOCHS: 250
+  OPTIMIZER: 'adam'
+  LOSS_FUNCTION: 'crossentropy'
+  MAX_LAYER_SIZE: 1024
+  MIN_LAYER_SIZE: 64
+  WEIGHTS: True
+  MULTIPLIER: [1,1,1,1]
+
+IMAGE:
+  IMAGE_HEIGHT: 600 #512
+  IMAGE_WIDTH: 360 #301
+  IMAGE_CHANNELS: 1
+  MASK_CHANNELS: 1
+  MASK_LABELS: 4
+  PHANTOM_FORMAT: 'tiff'
+  MASK_FORMAT: 'png'
+  LABELS: 
+    0: 'background' 
+    1: 'low_risk'
+    2: 'moderate_risk'
+    3: 'high_risk'
+
+PATHS:
+  TRAIN_IMG_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/train/phantom/"
+  TRAIN_MASK_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/train/mask/"
+  VAL_IMG_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/val/phantom/"
+  VAL_MASK_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/val/mask/"
+  TEST_IMG_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/test/phantom/"
+  TEST_MASK_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/test/mask/"
+  PREDICTIONS_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/predictions/"
+  SUBMISSIONS_DIR: "C:/Users/yannn/Documents/GitHub/MamAria/2022-05/data/submissions/"
