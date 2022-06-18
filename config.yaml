@@ -1,29 +1,46 @@
+wandb:
+    project_name: "6_2022_sweep"
+    project_team: 'tail-upenn'
+    online: False
+
+time: 0
+epoch: 0 
+
 project:
     device: 'gpu'
     num_workers: 12
-    project_name: "6_2022_test"
-    project_team: 'tail-upenn'
-    max_num_epochs: 5
-    weights: True
+    max_num_epochs: 250
+
     scheduler: True
     earlystop: True
     pin_memory: True
     load_model: False
     validation_interval: 20
-    optimizer: 'adam'
-    loss_function: 'crossentropy'
+
 
 hyperparameters:
-    learning_rate: .0003
-    momentum: 0.9
-    weight_decay: .0001
-    nesterov: True
-    batch_size: 14
+    optimizer: 'adam'
+    loss_function: 'crossentropy'
+    weights: True
+    
+    batch_size: 16
     multiplier: [1,1,1,1]
-    t_alpha: 1
-    f_alpha: 1
-    beta: .5
-    gamma: 2
+    
+    adam_learning_rate: .0003
+    
+    sgd_learning_rate: .01
+    sgd_momentum: 0.9
+    sgd_weight_decay: .0001
+    sgd_nesterov: True
+    
+    tversky_alpha: .5
+    tversky_beta: .5
+
+    focal_alpha: 1
+    focal_gamma: 2
+
+    earlystopping_wait: 10
+    earlystopping_patience: 10
 
 model:
     max_layer_size: 1024

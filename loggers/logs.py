@@ -1,12 +1,12 @@
 #import json
 
-from datetime import datetime
+#from datetime import datetime
 
 from utils.save_images import save_predictions_as_imgs#, save_submission_as_imgs
 from utils.metrics import check_accuracy
 #from utils.utils import get_device
 
-def log_predictions(data, label, predictions, global_metrics, label_metrics, config, step, epoch, time=0):
+def log_predictions(data, label, predictions, global_metrics, label_metrics, config, step):
        
     dict_eval  = check_accuracy(predictions, label, global_metrics, label_metrics)
 
@@ -14,9 +14,7 @@ def log_predictions(data, label, predictions, global_metrics, label_metrics, con
     #dict_eval['loss_train'] = loss_train
     #dict_eval['loss_val'] = loss_val
     
-    if time == 0: time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    save_predictions_as_imgs(data, label, predictions, config, step, epoch, dict_eval, time=time)
+    save_predictions_as_imgs(data, label, predictions, config, step, dict_eval)
     #save_ellipse_pred_as_imgs(val_loader, model, epoch, dict_eval, time=now, folder=CONFIG.PATHS.PREDICTIONS_DIR, device=device)
     #save_confidence_as_imgs(val_loader, model, epoch, dict_eval, time=now, folder=CONFIG.PATHS.PREDICTIONS_DIR, device=device)
 

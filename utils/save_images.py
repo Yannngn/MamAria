@@ -6,11 +6,10 @@ from torchvision.utils import save_image
 from utils.post_processing import label_to_pixel#, fit_ellipses_on_image, get_confidence_of_prediction
 from utils.utils import get_device, wandb_mask
 
-def save_predictions_as_imgs(data, label, predictions, config, step, epoch, dict_eval, time=0):
-    img_path = config.paths.predictions_dir + f"{time}_pred_e{epoch}_i{step}.png"
+def save_predictions_as_imgs(data, label, predictions, config, step, dict_eval):
+    img_path = config.paths.predictions_dir + f"{config.time}_pred_e{config.epoch}_i{step}.png"
     
-    if step == 0:
-        print("=> Saving predictions as images ...")
+    #if step == 0: print("=> Saving predictions as images ...")
         
     preds_labels = torch.argmax(predictions, 1)
     preds_img = label_to_pixel(preds_labels, config)
@@ -54,7 +53,7 @@ def save_predictions_as_imgs(data, label, predictions, config, step, epoch, dict
             
                 wandb.log(dict_subm)'''
 
-def save_validation_as_imgs(loader, config, time=0):
+def save_validation_as_imgs(loader, config):
     device = get_device(config)
     print("=> Saving validation images ...")
     
@@ -62,7 +61,7 @@ def save_validation_as_imgs(loader, config, time=0):
     
     with torch.no_grad():
         for idx, (x, y) in enumerate(loader):
-            img = f"{config.paths.predictions_dir}{time}_val_i{idx:02d}.png"
+            img = f"{config.paths.predictions_dir}{config.time}_val_i{idx:02d}.png"
             
             y = y.to(device)
             val = (y / y.max()).unsqueeze(1)

@@ -41,10 +41,12 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     loop.close()
     return loss.item()
 
-def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, global_metrics, label_metrics, config, load_epoch=0, time=0):  
-    for epoch in range(load_epoch, config.project.max_num_epochs):      
+def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, global_metrics, label_metrics, config):  
+    for epoch in range(config.epoch, config.project.max_num_epochs):      
         print(f'='.center(125, '='))
-        print(f'   BEGINNING EPOCH {epoch}:   '.center(125,'='))       
+        print(f'   BEGINNING EPOCH {epoch}:   '.center(125,'='))
+
+        config.epoch = epoch
         wandb.log({"epoch": epoch})
         train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
         # check accuracy
@@ -52,7 +54,7 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
         print(f'='.center(125, '='))
         print("Validating results ... \n")
         
-        val_loss = validate_fn(val_loader, model, loss_fn, scheduler, epoch, time, global_metrics, label_metrics, config)
+        val_loss = validate_fn(val_loader, model, loss_fn, scheduler, global_metrics, label_metrics, config)
         
         # save model
         checkpoint = {
@@ -66,18 +68,18 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
                 
         save_checkpoint(checkpoint)
 
-
-
         if not config.project.earlystop: continue
         
-        stopping(val_loss, checkpoint, checkpoint_path=f"data/checkpoints/{time}_best_checkpoint.pth.tar", epoch=epoch)
+        stopping(val_loss, checkpoint, checkpoint_path=f"data/checkpoints/{config.time}_best_checkpoint.pth.tar", epoch=epoch)
         
         if stopping.early_stop: 
-            early_stop_validation(val_loader, model, global_metrics, label_metrics, config, epoch, time)
-            wandb.run.finish()
+            early_stop_validation(val_loader, model, global_metrics, label_metrics, config)
+            wandb.finish()
             break
-              
+    
+    wandb.finish()
+
     print(f'='.center(125, '='))
     print("Training Finished")
 
-    wandb.run.finish()
+    

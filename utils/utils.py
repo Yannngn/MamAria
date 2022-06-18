@@ -49,7 +49,7 @@ def load_checkpoint(checkpoint, model, optimizer, scheduler):
 def get_loaders(config, train_transform, val_transform, test_transform):
     if config.image.phantom_format == 'dcm': from datasets.dataset import PhantomDCMDataset as PhantomDataset
     elif config.image.phantom_format == 'tiff' : from datasets.dataset import PhantomTIFFDataset as PhantomDataset
-    
+
     train_dir = config.paths.train_img_dir
     train_maskdir = config.paths.train_mask_dir
     val_dir = config.paths.val_img_dir
@@ -57,52 +57,22 @@ def get_loaders(config, train_transform, val_transform, test_transform):
     test_dir = config.paths.test_img_dir
     test_maskdir = config.paths.test_mask_dir
 
-    num_workers = config.project.num_workers
+    num_workers = 0
     pin_memory = config.project.pin_memory
 
     batch_size = config.hyperparameters.batch_size
 
-    train_ds = PhantomDataset(
-        image_dir=train_dir,
-        mask_dir=train_maskdir,
-        transform=train_transform,
-    )
+    train_ds = PhantomDataset(image_dir=train_dir, mask_dir=train_maskdir, transform=train_transform,)
 
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        shuffle=True,
-    )
+    train_loader = DataLoader(train_ds, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, shuffle=True,)
 
-    val_ds = PhantomDataset(
-        image_dir=val_dir,
-        mask_dir=val_maskdir,
-        transform=val_transform,
-    )
+    val_ds = PhantomDataset(image_dir=val_dir, mask_dir=val_maskdir, transform=val_transform,)
 
-    val_loader = DataLoader(
-        val_ds,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        shuffle=False,
-    )
+    val_loader = DataLoader(val_ds, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, shuffle=False,)
 
-    test_ds = PhantomDataset(
-        image_dir=test_dir,
-        mask_dir=test_maskdir,
-        transform=test_transform,
-    )
+    test_ds = PhantomDataset(image_dir=test_dir, mask_dir=test_maskdir, transform=test_transform,)
 
-    test_loader = DataLoader(
-        test_ds,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        shuffle=False,
-    )
+    test_loader = DataLoader(test_ds, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, shuffle=False,)
     
     return train_loader, val_loader, test_loader
 
@@ -129,31 +99,35 @@ def get_weights(config):
     
     return torch.tensor(out).float().to(device)
 
-def get_loss_function(config, weights):
-    if config.project.loss_function == "crossentropy":
+def get_loss_function(config):
+    weights = get_weights(config) if config.hyperparameters.weights else None
+    
+    loss_fn = config.hyperparameters.loss_function
+    assert any(loss_fn == x for x in ['crossentropy', 'tversky', 'focal']), print(f'{loss_fn} is not a recognized loss function')
+    
+    if loss_fn == "crossentropy":
         return nn.CrossEntropyLoss(weight = weights)
-    elif config.project.loss_function == "tversky":
-        return losses.TverskyLoss(alpha=config.hyperparameters.t_alpha, beta=config.hyperparameters.beta)
-    elif config.project.loss_function == "focal":
-        return losses.FocalLoss(config.hyperparameters.f_alpha, config.hyperparameters.gamma, reduction='mean')
-    else:
-        raise KeyError(f"loss function {config.project.loss_function} not recognized.")
+    elif loss_fn == "tversky":
+        return losses.TverskyLoss(alpha=config.hyperparameters.tversky_alpha, beta=config.hyperparameters.tversky_beta)
+    elif loss_fn == "focal":
+        return losses.FocalLoss(config.hyperparameters.focal_alpha, config.hyperparameters.focal_gamma, reduction='mean')
 
 def get_optimizer(config, parameters):
-    if config.project.optimizer == 'adam':
-        return optim.Adam(parameters, lr=config.hyperparameters.learning_rate)
-    elif config.project.optimizer == 'sgd':
+    optimizer = config.hyperparameters.optimizer
+    assert any(optimizer == x for x in ['adam', 'sgd']), print(f'{optimizer} is not a recognized optimizer')
+    
+    if optimizer == 'adam':
+        return optim.Adam(parameters, lr=config.hyperparameters.adam_learning_rate)
+    elif optimizer == 'sgd':
         return optim.SGD(parameters, 
-                         lr=config.hyperparameters.learning_rate, 
-                         momentum=config.hyperparameters.learning_rate, 
-                         nesterov=config.hyperparameters.nesterov, 
-                         weight_decay=config.hyperparameters.weight_decay)
-    else:
-        raise KeyError(f"optimizer {config.project.optimizer} not recognized.")
+                         lr=config.hyperparameters.sgd_learning_rate, 
+                         momentum=config.hyperparameters.sgd_momentum, 
+                         nesterov=config.hyperparameters.sgd_nesterov, 
+                         weight_decay=config.hyperparameters.sgd_weight_decay)
 
 def get_metrics(config):
     num_classes = config.image.mask_labels
-    average = 'weighted' if config.project.weights else 'micro'
+    average = 'weighted' if config.hyperparameters.weights else 'micro'
 
     device = get_device(config)
 

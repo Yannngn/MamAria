@@ -2,13 +2,7 @@ import cv2
 import numpy as np
 import torch
 
-from munch import munchify
-from yaml import safe_load
-
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-with open('config.yaml') as f:
-    CONFIG = munchify(safe_load(f))
-
+from utils.utils import get_device
 
 def label_to_pixel(preds, config, col='l'):
     if col == 'l':
@@ -20,8 +14,8 @@ def label_to_pixel(preds, config, col='l'):
         preds = preds[:,1:,:,:]
         return preds.float()
 
-def fit_ellipses_on_image(image: torch.tensor) -> np.array:
-    lesion = (CONFIG.IMAGE.MASK_LABELS - 1)
+def fit_ellipses_on_image(image: torch.tensor, config) -> np.array:
+    lesion = (config.image.mask_labels - 1)
     
     image = image.cpu().numpy()
     image = np.uint8(image)
@@ -44,8 +38,9 @@ def fit_ellipses_on_image(image: torch.tensor) -> np.array:
 
     return np.asarray(image, dtype=np.uint8)
 
-def get_confidence_of_prediction(probs: torch.tensor) -> np.array:
-    lesion = (CONFIG.IMAGE.MASK_LABELS - 1)
+def get_confidence_of_prediction(probs: torch.tensor, config) -> np.array:
+    device = get_device(config)
+    lesion = (config.image.mask_labels - 1)
     
     preds = torch.argmax(probs, 1).cpu().numpy()
     preds[preds > 0] = 1
@@ -63,7 +58,7 @@ def get_confidence_of_prediction(probs: torch.tensor) -> np.array:
         heatmap = cv2.applyColorMap(img, cv2.COLORMAP_JET)
         color[i] = heatmap * breast[i]
     
-    lesion_prob = torch.tensor(color).float().to(DEVICE) / 255
+    lesion_prob = torch.tensor(color).float().to(device) / 255
     lesion_prob = lesion_prob.permute(0, 3, 1, 2)
 
     print(torch.max(lesion_prob), torch.min(lesion_prob), lesion_prob.shape)
