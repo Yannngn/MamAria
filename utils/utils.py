@@ -11,6 +11,7 @@ from albumentations.pytorch import ToTensorV2
 from albumentations.augmentations.geometric import resize
 from torch import nn
 from torch import optim
+from torch.optim import lr_scheduler
 from torchgeometry import losses
 from torch.utils.data import DataLoader
 
@@ -103,7 +104,7 @@ def get_loss_function(config):
     weights = get_weights(config) if config.hyperparameters.weights else None
     
     loss_fn = config.hyperparameters.loss_function
-    assert any(loss_fn == x for x in ['crossentropy', 'tversky', 'focal']), print(f'{loss_fn} is not a recognized loss function')
+    assert any(loss_fn == x for x in [None, 'crossentropy', 'tversky', 'focal']), print(f'{loss_fn} is not a recognized loss function')
     
     if loss_fn == "crossentropy":
         return nn.CrossEntropyLoss(weight = weights)
@@ -111,6 +112,8 @@ def get_loss_function(config):
         return losses.TverskyLoss(alpha=config.hyperparameters.tversky_alpha, beta=config.hyperparameters.tversky_beta)
     elif loss_fn == "focal":
         return losses.FocalLoss(config.hyperparameters.focal_alpha, config.hyperparameters.focal_gamma, reduction='mean')
+    else:
+        return None
 
 def get_optimizer(config, parameters):
     optimizer = config.hyperparameters.optimizer
@@ -124,6 +127,20 @@ def get_optimizer(config, parameters):
                          momentum=config.hyperparameters.sgd_momentum, 
                          nesterov=config.hyperparameters.sgd_nesterov, 
                          weight_decay=config.hyperparameters.sgd_weight_decay)
+
+def get_scheduler(config, optimizer):
+    scheduler_fn = config.hyperparameters.loss_function
+    assert any(scheduler_fn == x for x in [None, 'plateau', 'cosine', 'cyclic', 'warm']), print(f'{scheduler_fn} is not a recognized loss function')
+    if config.hyperparameters.scheduler == 'plateau':
+        return lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=config.hyperparameters.scheduler_patience)
+    elif config.hyperparameters.scheduler == 'cosine':
+        return lr_scheduler.CosineAnnealingLR(optimizer)
+    elif config.hyperparameters.scheduler == 'cyclic':
+        return lr_scheduler.CyclicLR(optimizer, max_lr=.001, base_lr=0.00001)
+    elif config.hyperparameters.scheduler == 'warm':
+        return lr_scheduler.CosineAnnealingWarmRestarts(optimizer, config.hyperparameters.scheduler_patience)
+    else:
+        raise KeyError(f"scheduler {config.hyperparameters.scheduler} not recognized.")
 
 def get_metrics(config):
     num_classes = config.image.mask_labels

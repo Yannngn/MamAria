@@ -10,9 +10,6 @@ project:
     device: 'gpu'
     num_workers: 12
     max_num_epochs: 250
-
-    scheduler: True
-    earlystop: True
     pin_memory: True
     load_model: False
     validation_interval: 20
@@ -21,6 +18,7 @@ project:
 hyperparameters:
     optimizer: 'adam'
     loss_function: 'crossentropy'
+    scheduler: 'warm'
     weights: True
     
     batch_size: 16
@@ -39,7 +37,7 @@ hyperparameters:
     focal_alpha: 1
     focal_gamma: 2
 
-    earlystopping_wait: 10
+    scheduler_patience: 5
     earlystopping_patience: 10
 
 model:

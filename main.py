@@ -8,13 +8,12 @@ from datetime import datetime
 
 from munch import munchify, unmunchify
 from torch.nn import DataParallel
-from torch.optim import lr_scheduler
 from yaml import safe_load
 
 from models.unet import UNET
 from train import train_loop
 from utils.early_stopping import EarlyStopping
-from utils.utils import get_device, get_metrics, load_checkpoint, get_loaders, get_loss_function, get_optimizer, get_transforms
+from utils.utils import get_device, get_metrics, get_scheduler, load_checkpoint, get_loaders, get_loss_function, get_optimizer, get_transforms
 
 def main(config):
     device = get_device(config)
@@ -44,7 +43,7 @@ def main(config):
     loss_fn = get_loss_function(config)
     optimizer = get_optimizer(config, model.parameters())
        
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=config.hyperparameters.earlystopping_patience//2) if config.project.scheduler else None 
+    scheduler = get_scheduler(optimizer, config)
     
     config.epoch = load_checkpoint(torch.load("my_checkpoint.pth.tar"), model, optimizer, scheduler) if config.project.load_model else 0
         

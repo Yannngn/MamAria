@@ -67,8 +67,6 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
         }
                 
         save_checkpoint(checkpoint)
-
-        if not config.project.earlystop: continue
         
         stopping(val_loss, checkpoint, checkpoint_path=f"data/checkpoints/{config.time}_best_checkpoint.pth.tar", epoch=epoch)
         
