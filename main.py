@@ -17,29 +17,21 @@ from utils.utils import get_device, get_metrics, get_scheduler, load_checkpoint,
 
 def main(config):
     device = get_device(config)
-    logging.info('main')
     wandb.init(
         project = config.wandb.project_name,
         entity = config.wandb.project_team,
         config = unmunchify(config.hyperparameters)
     )
-    logging.info('wandb init')
+
     config.hyperparameters = munchify(wandb.config)
 
     train_transforms, val_transforms, test_transforms = get_transforms(config)
-    logging.info('transforms')
-    global_metrics, label_metrics = get_metrics(config)
-    logging.info('metrics')
-    # cross com 3 folds // 2 para treino 1 para calib
+    
+    train_loader, val_loader, _ = get_loaders(config, train_transforms, val_transforms, test_transforms)
 
-
-    ## média dos 3 modelos passando pelo calibs
-
-    train_loader, val_loader, _ = get_loaders(config, train_transforms,val_transforms, test_transforms)
-    logging.info('loader')
-    model = UNET(config).to(device) #in_channels = CONFIG.IMAGE.IMAGE_CHANNELS, classes = CONFIG.IMAGE.MASK_LABELS, config = config).to(DEVICE)
+    model = UNET(config).to(device)
     model = DataParallel(model)
-    logging.info('model')
+
     loss_fn = get_loss_function(config)
     optimizer = get_optimizer(config, model.parameters())
        
@@ -49,12 +41,10 @@ def main(config):
         
     scaler = torch.cuda.amp.GradScaler()
 
-    stopping = EarlyStopping(patience=config.hyperparameters.earlystopping_patience, wait=config.hyperparameters.earlystopping_wait)
-    logging.info('optimizer and scheduler')
+    stopping = EarlyStopping(patience=config.hyperparameters.earlystopping_patience, wait=0)
 
-    #save_validation_as_imgs(val_loader, config)
-    #save_ellipse_validation_as_imgs(val_loader, time = BEGIN)
-
+    global_metrics, label_metrics = get_metrics(config)
+    
     logging.info('entering train')
     train_loop(train_loader, val_loader, model, 
                optimizer, scheduler, loss_fn,
