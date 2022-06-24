@@ -5,7 +5,6 @@ import wandb
 import warnings
 
 from datetime import datetime
-
 from munch import munchify, unmunchify
 from torch.nn import DataParallel
 from yaml import safe_load
