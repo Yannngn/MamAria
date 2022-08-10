@@ -31,7 +31,7 @@ def load_checkpoint(checkpoint, model, optimizer, scheduler):
     print("Loading checkpoint ...")
     
     try:
-        model.load_state_dict(checkpoint["state_dict"])
+        model.load_state_dict(checkpoint["state_dict"], strict=False)
         if optimizer is not None:
             optimizer.load_state_dict(checkpoint["optimizer"])
         if scheduler is not None:
@@ -130,7 +130,7 @@ def get_optimizer(config, parameters):
 
 def get_scheduler(config, optimizer):
     scheduler_fn = config.hyperparameters.loss_function
-    assert any(scheduler_fn == x for x in [None, 'plateau', 'cosine', 'cyclic', 'warm']), print(f'{scheduler_fn} is not a recognized loss function')
+    #assert any(scheduler_fn == x for x in ['plateau', 'cosine', 'cyclic', 'warm']), print(f'{scheduler_fn} is not a recognized loss function')
     if config.hyperparameters.scheduler == 'plateau':
         return lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=config.hyperparameters.scheduler_patience)
     elif config.hyperparameters.scheduler == 'cosine':

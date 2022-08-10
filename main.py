@@ -16,6 +16,11 @@ from utils.utils import get_device, get_metrics, get_scheduler, load_checkpoint,
 
 def main(config):
     device = get_device(config)
+
+    print(torch.cuda.is_available())
+    print(torch.cuda.device_count())
+    print(torch.cuda.current_device())
+
     wandb.init(
         project = config.wandb.project_name,
         entity = config.wandb.project_team,
@@ -34,7 +39,7 @@ def main(config):
     loss_fn = get_loss_function(config)
     optimizer = get_optimizer(config, model.parameters())
        
-    scheduler = get_scheduler(optimizer, config)
+    scheduler = get_scheduler(config, optimizer)
     
     config.epoch = load_checkpoint(torch.load("my_checkpoint.pth.tar"), model, optimizer, scheduler) if config.project.load_model else 0
         

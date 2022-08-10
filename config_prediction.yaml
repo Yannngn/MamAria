@@ -1,7 +1,7 @@
 wandb:
-    project_name: "6_2022_sweep"
+    project_name: "6_2022_calibration_test"
     project_team: 'tail-upenn'
-    online: True
+    online: False
 
 time: 0
 epoch: 0 
@@ -14,32 +14,15 @@ project:
     load_model: False
     validation_interval: 20
 
-
 hyperparameters:
-    optimizer: 'adam'
-    loss_function: 'crossentropy'
-    scheduler: 'warm'
-    weights: True
+    optimizer: None
+    loss_function: crossentropy
+    scheduler: None
+    weights: False
     
     batch_size: 16
-    multiplier: [1,1,1,1]
+    multiplier: None
     
-    adam_learning_rate: .0003
-    
-    sgd_learning_rate: .01
-    sgd_momentum: 0.9
-    sgd_weight_decay: .0001
-    sgd_nesterov: True
-    
-    tversky_alpha: .5
-    tversky_beta: .5
-
-    focal_alpha: 1
-    focal_gamma: 2
-
-    scheduler_patience: 5
-    earlystopping_patience: 10
-
 model:
     max_layer_size: 1024
     min_layer_size: 64
@@ -57,6 +40,11 @@ image:
         1: 'low_risk'
         2: 'moderate_risk'
         3: 'high_risk'
+
+load:
+    #path: E:\yann_folder\sweep_2022\PyTorch_Seg-master\data\checkpoints\20220619_013827_best_checkpoint.pth.tar
+                                                                        #20220618_172353_best_checkpoint.pth
+    path: E:\yann_folder\sweep_2022\PyTorch_Seg-master\data\checkpoints\20220618_160045_best_checkpoint.pth.tar
 
 paths:
     train_img_dir: "data/train/phantom/"

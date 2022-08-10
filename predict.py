@@ -33,8 +33,6 @@ def predict_fn(test_loader, model, loss_fn, global_metrics, label_metrics, confi
         loop.set_postfix(loss=loss.item())
         
         log_predictions(data, targets, predictions, global_metrics, label_metrics, config, idx)
-    
-    model.train()
 
     return loss.item()
 
@@ -49,20 +47,21 @@ def main(config):
     #logging.info('wandb init')
     config.hyperparameters = munchify(wandb.config)
 
-    train_transforms, val_transforms, test_transforms = get_transforms(config)
+    _, _, test_transforms = get_transforms(config)
     global_metrics, label_metrics = get_metrics(config)
-    _, _, test_loader = get_loaders(config, train_transforms,val_transforms, test_transforms)
+    _, _, test_loader = get_loaders(config, None, None, test_transforms)
 
-    model = UNET(config).to(device)
-    model = nn.DataParallel(model)
+    model = UNET(config)
     
     loss_fn = get_loss_function(config)
 
-    load_checkpoint(torch.load("data/checkpoints/20220619_061736_best_checkpoint.pth.tar"), model, optimizer=None, scheduler=None)
+    load_checkpoint(torch.load("data/checkpoints/20220619_061736_best_checkpoint.pth.tar", map_location=torch.device('cpu')), model, optimizer=None, scheduler=None)
+
+    model.to(device)
+    model = nn.DataParallel(model)
 
 #load_checkpoint(checkpoint, model, optimizer, scheduler)
     predict_fn(
-        
         test_loader,
         model,
         loss_fn,
@@ -77,7 +76,7 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
     torch.autograd.set_detect_anomaly(True)
 
-    with open('config.yaml') as f:
+    with open('config_prediction.yaml') as f:
         config = munchify(safe_load(f))  
 
     os.environ['WANDB_MODE'] = 'online' if config.wandb.online else 'offline'
