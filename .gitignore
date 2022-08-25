@@ -3,6 +3,7 @@ __pycache__
 *.7z
 *.pth.tar
 data/
+plots/
 wandb/
 checkpoints/
 wandb_authorize.py

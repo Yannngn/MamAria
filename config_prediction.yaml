@@ -44,7 +44,7 @@ image:
 load:
     #path: E:\yann_folder\sweep_2022\PyTorch_Seg-master\data\checkpoints\20220619_013827_best_checkpoint.pth.tar
                                                                         #20220618_172353_best_checkpoint.pth
-    path: E:\yann_folder\sweep_2022\PyTorch_Seg-master\data\checkpoints\20220618_160045_best_checkpoint.pth.tar
+    path: data\checkpoints\20220618_160045_best_checkpoint.pth.tar
 
 paths:
     train_img_dir: "data/train/phantom/"

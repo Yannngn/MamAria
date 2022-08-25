@@ -19,6 +19,7 @@ from typing import Tuple, List, Optional
                                      
 from models.unet import UNET
 from utils import metrics
+from utils.fulldirichletcustom import FullDirichletCalibratorCustom
 from utils.utils import get_device, get_loaders, get_loss_function, get_transforms, load_checkpoint
 
 mpl.use('Agg')
@@ -43,15 +44,16 @@ def main(config):
     lambda_ = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
     mu_ = lambda_ if odir else None
 
-    sample = random.sample(range(0, torch.numel(labels)), 1 * torch.numel(labels) // (1 * 6))
-    gscv = fit_calibrator(logits, labels, lambda_, mu_, sample)
-    #gscv = fit_calibrator(logits, labels, lambda_, mu_)
+    # sample = random.sample(range(0, torch.numel(labels)), 1 * torch.numel(labels) // (1 * 4))
+    # gscv = fit_calibrator(logits, labels, lambda_, mu_, sample)
+    
+    gscv = fit_calibrator(logits, labels, lambda_, mu_)
     
     logits, labels = predict(model, calib_loader, loss_fn, device)
 
     plot_results(gscv, logits, labels, odir)
 
-def print_metrics(logits: torch.Tensor, labels:torch.Tensor) -> None:
+def print_metrics(logits: torch.Tensor, labels: torch.Tensor) -> None:
     ece_criterion = metrics.ECELoss()
     #Torch version
     logits_np = logits.cpu().float().numpy()
@@ -63,25 +65,28 @@ def print_metrics(logits: torch.Tensor, labels:torch.Tensor) -> None:
     mce_criterion = metrics.MCELoss()
     print(f'MCE: {mce_criterion.loss(logits_np,labels_np):.3f}')
 
-def fit_calibrator(logits: torch.Tensor, labels: torch.Tensor, lambda_: list, mu_: Optional[list], sample: Optional[list]=None):
+def fit_calibrator(logits: torch.Tensor, labels: torch.Tensor, lambda_: list, mu_: Optional[List], sample: Optional[List]=None):
     scores = logits.permute(0, 2, 3, 1)
     scores = scores.flatten(end_dim=2)
     scores = softmax(scores.cpu().float().numpy(), axis=1)
     labels = labels.flatten().cpu().float().numpy()
 
-    calibrator = FullDirichletCalibrator(reg_lambda=lambda_, reg_mu=mu_)
-    skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=0)
-    gscv = GridSearchCV(calibrator, 
-                        cv=skf,
+    #calibrator = FullDirichletCalibrator(reg_lambda=lambda_, reg_mu=mu_)
+    calibrator = FullDirichletCalibratorCustom(reg_lambda=lambda_, reg_mu=mu_)
+
+    gscv = GridSearchCV(calibrator,
                         scoring='neg_log_loss',
                         param_grid={'reg_lambda': lambda_,
                                     'reg_mu': mu_ if mu_ else [None]
                                     },
+                        n_jobs=1,
                         verbose=1
                         )
-
-    gscv.fit(scores[sample], labels[sample])
-
+    if sample:
+        gscv.fit(scores[sample], labels[sample])
+    else:
+        gscv.fit(scores, labels)
+    
     print('Grid of parameters cross-validated')
     print(gscv.param_grid)
     print(f'Best parameters: {gscv.best_params_}')
