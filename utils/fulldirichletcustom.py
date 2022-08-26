@@ -1,4 +1,4 @@
-from tkinter import N
+
 import jax.numpy as np
 import logging
 import numpy as raw_np
@@ -8,9 +8,9 @@ from dirichletcal.calib.fulldirichlet import FullDirichletCalibrator
 from dirichletcal.calib.multinomial import MultinomialRegression, _get_weights, _gradient, _newton_update, _objective
 from dirichletcal.utils import clip_for_log
 from sklearn.metrics import log_loss
-from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.model_selection import KFold
 from sklearn.preprocessing import label_binarize
-
+from tqdm import tqdm
 class FullDirichletCalibratorCustom(FullDirichletCalibrator):
     def fit(self, X, y, X_val=None, y_val=None, *args, **kwargs):
         self.weights_ = self.weights_init
@@ -26,19 +26,30 @@ class FullDirichletCalibratorCustom(FullDirichletCalibrator):
         _X_val = np.copy(X_val)
         _X_val = np.log(clip_for_log(X_val))
 
+        n_folds = 3
+        _j = 4
+        cv = KFold(n_folds)
+        
+        # weights_ = None
         self.calibrator_ = MultinomialRegression(method='Full',
+                                                 # weights_0= weights_,
                                                  reg_lambda=self.reg_lambda,
                                                  reg_mu=self.reg_mu,
                                                  reg_norm=self.reg_norm,
                                                  ref_row=self.ref_row,
                                                  optimizer=self.optimizer)
         
-        cv = KFold(10)
-        for train, _ in cv.split(_X):
-            sli = len(train) // 10
-            for i in range(10): 
+        print(f"""Running {n_folds} Folds with {_j} Slices of data""")
+        for train, _ in cv.split(_X):           
+            sli = len(train) // _j
+            for i in tqdm(range(_j)): 
+                try:
+                    print('Before', self.calibrator_.weights_[0, 0])
+                except AttributeError:
+                    pass
                 self.calibrator_.fit(_X[train[i*sli:(i+1)*sli]], y[train[i*sli:(i+1)*sli]], *args, **kwargs)
-            
+                print('After', self.calibrator_.weights_[0, 0])
+                
         # self.calibrator_.fit(_X, y, *args, **kwargs)
         final_loss = log_loss(y_val, self.calibrator_.predict_proba(_X_val))
 
