@@ -1,13 +1,14 @@
 wandb:
     project_name: "10_2022_calibration_test"
     project_team: 'tail-upenn'
-    online: False
+    online: True
 
 project:
     device: 'gpu'
     num_workers: 12
     num_epochs: 3
     pin_memory: True
+    load_model: True
     val_interval: 2
     time: 0
     epoch: 0 
@@ -16,39 +17,29 @@ hyperparameters:
     batch_size: 8
     weights: True
     
-    optimizer: 
-        name: adam
+    optimizer_fn: adam
         
-        adam:
-            learning_rate: .0003
+    adam_learning_rate: .0003
 
-        sgd:
-            learning_rate: .01
-            momentum: 0.9
-            weight_decay: .0001
-            nesterov: True
+    sgd_learning_rate: .01
+    sgd_momentum: 0.9
+    sgd_weight_decay: .0001
+    sgd_nesterov: True
 
-    loss: 
-        name: crossentropy
-
-        crossentropy:
-            multiplier: [1,1,1,1]
+    loss_fn: crossentropy   
+    multiplier: [1,1,1,1]
             
-        tversky:
-            alpha: .5
-            beta: .5
+    tversky_alpha: .5
+    tversky_beta: .5
 
-        focal:
-            alpha: 1
-            gamma: 2
+    focal_alpha: 1
+    focal_gamma: 2
     
-    scheduler: 
-        name: warm
-        patience: 5
+    scheduler_fn: warm
+    scheduler_patience: 5
     
-    earlystop:
-        earlystopping: True
-        patience: 10
+    earlystopping: True
+    earlystop_patience: 10
     
 model:
     max_layer_size: 1024
@@ -72,19 +63,18 @@ image:
         2: 'moderate_risk'
         3: 'high_risk'
 
-load_model:
-    load: False
+load:
     #path: E:\yann_folder\sweep_2022\PyTorch_Seg-master\data\checkpoints\20220619_013827_best_checkpoint.pth.tar
                                                                         #20220618_172353_best_checkpoint.pth
-    path: data\checkpoints\20220618_160045_best_checkpoint.pth.tar
+    path: data\checkpoints\20221028_103225_best_checkpoint.pth.tar
 
 paths:
-    train_img_dir: "data/train/phantom/"
-    train_mask_dir: "data/train/mask/"
-    val_img_dir: "data/val/phantom/"
-    val_mask_dir: "data/val/mask/"
-    test_img_dir: "data/test/phantom/"
-    test_mask_dir: "data/test/mask/"
+    train_img_dir: "D:/MamAria/data/train/phantom/"
+    train_mask_dir: "D:/MamAria/data/train/mask/"
+    val_img_dir: "D:/MamAria/data/val/phantom/"
+    val_mask_dir: "D:/MamAria/data/val/mask/"
+    test_img_dir: "D:/MamAria/data/test/phantom/"
+    test_mask_dir: "D:/MamAria/data/test/mask/"
     predictions_dir: "data/predictions/"
     submissions_dir: "data/submissions/"
     calibrations_dir: "data/calibrations/"

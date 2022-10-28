@@ -63,7 +63,7 @@ def plot_results(model, scores, labels, time, odir: bool) -> None:
                                    )
     
     plt.title(f'Before {"Odir" if odir else "Full"} Reliability Diagram')
-    plt.savefig(f'plots/{time}_pre_{"odir" if odir else "full"}.png')
+    plt.savefig(f'data/plots/{time}_pre_{"odir" if odir else "full"}.png')
     
     loss = log_loss(labels, scores)
     logging.log(f"TEST log-loss: UNET {loss:.2f}")
@@ -82,4 +82,4 @@ def plot_results(model, scores, labels, time, odir: bool) -> None:
                                    show_histogram=True)
 
     plt.title(f'After {"Odir" if odir else "Full"} Reliability Diagram')
-    plt.savefig(f'plots/{time}_pos_{"odir" if odir else "full"}.png') 
+    plt.savefig(f'data/plots/{time}_pos_{"odir" if odir else "full"}.png') 

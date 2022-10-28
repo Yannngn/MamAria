@@ -45,13 +45,12 @@ def main(config):
 
     config.hyperparameters = munchify(wandb.config)
 
-    _, _, test_transforms = get_transforms(config)
-    _, _, test_loader = get_loaders(config, None, None, test_transforms)
+    _, _, test_loader = get_loaders(config, *get_transforms(config))
 
     model = UNET(config).to(device)
     model = torch.nn.DataParallel(model)
 
-    load_checkpoint(torch.load(config.load_model.path), 
+    load_checkpoint(torch.load(config.load.path), 
                     model, 
                     optimizer=None, 
                     scheduler=None
@@ -86,8 +85,12 @@ def main(config):
     wandb.finish()  
 
 if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.INFO)
+    warnings.filterwarnings("ignore")
+
     torch.cuda.empty_cache()
     torch.autograd.set_detect_anomaly(True)
+    
 
     #CHECKPOINT = "data/checkpoints/20220619_061736_best_checkpoint.pth.tar"
 

@@ -19,12 +19,12 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
         data, targets = data.to(device), targets.long().to(device)
 
         # forward
+        optimizer.zero_grad()
         with torch.cuda.amp.autocast():
             predictions = model(data)
             loss = loss_fn(predictions, targets)
 
         # backward
-        optimizer.zero_grad()
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()

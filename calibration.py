@@ -95,7 +95,6 @@ def predict(model, loader, loss_fn, device) -> Tuple[torch.Tensor, torch.Tensor]
 
 if __name__ == '__main__':
     NOW = datetime.now().strftime("%m%d%Y-%H%M%S")
-    CUSTOM = True
     
     mpl.use('Agg')
     

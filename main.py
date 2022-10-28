@@ -43,15 +43,15 @@ def main(config):
     optimizer = get_optimizer(config, model.parameters())
     scheduler = get_scheduler(config, optimizer)
     scaler = torch.cuda.amp.GradScaler()   
-    stopping = EarlyStopping(patience=config.hyperparameters.earlystop.patience, 
-                             wait=0
-                             ) if config.earlystop.earlystopping else None 
+    stopping = EarlyStopping(patience=config.hyperparameters.earlystop_patience, 
+                             wait=config.hyperparameters.earlystop_wait
+                             ) if config.hyperparameters.earlystopping else None 
     
-    config.project.epoch = load_checkpoint(torch.load(config.load_model.path), 
+    config.project.epoch = load_checkpoint(torch.load(config.load.path), 
                                            model, 
                                            optimizer, 
                                            scheduler
-                                           ) if config.load_model.load else 0
+                                           ) if config.project.load_model else 0
 
     global_metrics, label_metrics = get_metrics(config)
     
@@ -62,6 +62,7 @@ def main(config):
                global_metrics, label_metrics, config)
 
 if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.INFO)
     warnings.filterwarnings("ignore")
     
     torch.cuda.empty_cache()

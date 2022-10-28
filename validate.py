@@ -32,8 +32,8 @@ def validate_fn(loader, model, loss_fn, scheduler, global_metrics, label_metrics
         vloss += loss.item()
 
         # system logging
-        if config.epoch != config.project.max_num_epochs - 1: continue
-        if (config.epoch * len(loader) + idx) % config.project.validation_interval != 0: continue
+        if config.project.epoch != config.project.num_epochs - 1: continue
+        if (config.project.epoch * len(loader) + idx) % config.project.val_interval != 0: continue
 
         log_predictions(data, targets, predictions, global_metrics, label_metrics, config, idx)
 

@@ -107,7 +107,7 @@ def get_loaders(config, train_transform, val_transform, test_transform):
 def get_weights(config):
     device = get_device(config)
     weights = np.zeros(config.image.mask_labels)
-    multiplier = np.array(config.hyperparameters.crossentropy.multiplier)
+    multiplier = np.array(config.hyperparameters.multiplier)
     mask_dir = config.paths.train_mask_dir
     total_pixels = 0
     mask_files = [os.path.join(mask_dir, file) for file in os.listdir(mask_dir) if file.endswith('.png')]
@@ -128,47 +128,47 @@ def get_weights(config):
     return torch.tensor(out).float().to(device)
 
 def get_loss_function(config):    
-    loss_fn = config.hyperparameters.loss.name
+    loss_fn = config.hyperparameters.loss_fn
     assert any(loss_fn == x for x in [None, 'crossentropy', 'tversky', 'focal']), logging.error(f'{loss_fn} is not a recognized loss function')
     
     if loss_fn == "crossentropy":
         weights = get_weights(config) if config.hyperparameters.weights else None
         return nn.CrossEntropyLoss(weight = weights)
     elif loss_fn == "tversky":
-        return losses.TverskyLoss(alpha=config.hyperparameters.tversky.alpha, 
-                                  beta=config.hyperparameters.tversky.beta)
+        return losses.TverskyLoss(alpha=config.hyperparameters.tversky_alpha, 
+                                  beta=config.hyperparameters.tversky_beta)
     elif loss_fn == "focal":
-        return losses.FocalLoss(alpha=config.hyperparameters.focal.alpha, 
-                                gamma=config.hyperparameters.focal.gamma, 
+        return losses.FocalLoss(alpha=config.hyperparameters.focal_alpha, 
+                                gamma=config.hyperparameters.focal_gamma, 
                                 reduction='mean')
     else:
         return None
 
 def get_optimizer(config, parameters):
-    optimizer = config.hyperparameters.optimizer.name
+    optimizer = config.hyperparameters.optimizer_fn
     assert any(optimizer == x for x in ['adam', 'sgd']), logging.error(f'{optimizer} is not a recognized optimizer')
     
     if optimizer == 'adam':
         return optim.Adam(parameters, 
-                          lr=config.hyperparameters.adam.learning_rate
+                          lr=config.hyperparameters.adam_learning_rate
                           )
     elif optimizer == 'sgd':
         return optim.SGD(parameters, 
-                         lr=config.hyperparameters.sgd.learning_rate, 
-                         momentum=config.hyperparameters.sgd.momentum, 
-                         weight_decay=config.hyperparameters.sgd.weight_decay,
-                         nesterov=config.hyperparameters.sgd.nesterov, 
+                         lr=config.hyperparameters.sgd_learning_rate, 
+                         momentum=config.hyperparameters.sgd_momentum, 
+                         weight_decay=config.hyperparameters.sgd_weight_decay,
+                         nesterov=config.hyperparameters.sgd_nesterov, 
                          )
 
 def get_scheduler(config, optimizer):
-    scheduler_fn = config.hyperparameters.scheduler.name
+    scheduler_fn = config.hyperparameters.scheduler_fn
     
     assert any(scheduler_fn == x for x in ['plateau', 'cosine', 'cyclic', 'warm']), logging.error(f'{scheduler_fn} is not a recognized loss function')
     
     if scheduler_fn == 'plateau':
         return lr_scheduler.ReduceLROnPlateau(optimizer, 
                                               'min', 
-                                              patience=config.hyperparameters.scheduler.patience
+                                              patience=config.hyperparameters.scheduler_patience
                                               )
     elif scheduler_fn == 'cosine':
         return lr_scheduler.CosineAnnealingLR(optimizer)
@@ -179,7 +179,7 @@ def get_scheduler(config, optimizer):
                                      )
     elif scheduler_fn == 'warm':
         return lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 
-                                                        config.hyperparameters.scheduler.patience
+                                                        config.hyperparameters.scheduler_patience
                                                         )
     else:
         raise KeyError(f"scheduler {scheduler_fn} not recognized.")
