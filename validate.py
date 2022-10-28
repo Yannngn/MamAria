@@ -1,3 +1,4 @@
+import logging
 import torch
 import wandb
 
@@ -6,18 +7,18 @@ from tqdm import tqdm
 from loggers.logs import log_predictions
 from utils.utils import get_device
 
-def validate_fn(val_loader, model, loss_fn, scheduler, global_metrics, label_metrics, config):
+def validate_fn(loader, model, loss_fn, scheduler, global_metrics, label_metrics, config):
     device = get_device(config)
-    print(f'='.center(125, '='))
-    print("   Logging and saving predictions...   ".center(125, '='))    
+    logging.info('Validating results...')    
     
-    loop = tqdm(val_loader, bar_format='{l_bar}{bar:75}{r_bar}{bar:-75b}')
-    model.eval()
+    loop = tqdm(loader, bar_format='{l_bar}{bar:75}{r_bar}{bar:-75b}')
     vloss = 0.
+    
+    model.eval()
     for idx, (data, targets) in enumerate(loop):
-        data = data.to(device)
-        targets = targets.long().to(device)
+        data, targets = data.to(device), targets.long().to(device)
 
+        # forward
         with torch.no_grad():
             predictions = model(data)
             loss = loss_fn(predictions, targets)
@@ -26,28 +27,30 @@ def validate_fn(val_loader, model, loss_fn, scheduler, global_metrics, label_met
         loop.set_postfix(loss=loss.item())
         scheduler.step(loss.item())
         
+        # wandb logging
         wandb.log({"batch validation loss":loss.item()})
         vloss += loss.item()
 
-        if ((config.epoch * len(val_loader) + idx) % config.project.validation_interval == 0) or (config.epoch == config.project.max_num_epochs - 1):
-            log_predictions(data, targets, predictions, global_metrics, label_metrics, config, idx)
+        # system logging
+        if config.epoch != config.project.max_num_epochs - 1: continue
+        if (config.epoch * len(loader) + idx) % config.project.validation_interval != 0: continue
 
-    loop.close()
+        log_predictions(data, targets, predictions, global_metrics, label_metrics, config, idx)
+
     wandb.log({"validation loss":vloss/config.hyperparameters.batch_size})
-    model.train()
+    loop.close()
+    
     return loss.item()
 
-def early_stop_validation(val_loader, model, global_metrics, label_metrics, config):
+def early_stop_validation(loader, model, global_metrics, label_metrics, config):
     device = get_device(config)
-    print(f'='.center(125, '='))
-    print("Early Stopping ...")
+    logging.info('Early stopping model...')
     
-    loop = tqdm(val_loader, bar_format='{l_bar}{bar:75}{r_bar}{bar:-75b}')
+    loop = tqdm(loader, bar_format='{l_bar}{bar:75}{r_bar}{bar:-75b}')
+    
     model.eval()
-    
     for idx, (data, targets) in enumerate(loop):
-        data = data.to(device)
-        targets = targets.long().to(device)
+        data, targets = data.to(device), targets.long().to(device)
 
         with torch.no_grad():
             predictions = model(data)

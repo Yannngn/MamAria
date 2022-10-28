@@ -1,3 +1,4 @@
+import logging
 import torch
 import wandb
 
@@ -8,17 +9,15 @@ from validate import validate_fn, early_stop_validation
 
 def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     device = get_device(config)
-    print(f'='.center(125, '='))
-    print('Training model... \n')
+    logging.info('Training model...')
     
     loop = tqdm(loader, bar_format='{l_bar}{bar:75}{r_bar}{bar:-75b}')
-    closs = 0
+    closs = 0.
 
-    for _, (data, targets) in enumerate(loop):
-        data = data.to(device)
-        targets = targets.long().to(device)
-        #print(targets.unique(), "targets")
-        
+    model.train()
+    for data, targets in loop:
+        data, targets = data.to(device), targets.long().to(device)
+
         # forward
         with torch.cuda.amp.autocast():
             predictions = model(data)
@@ -39,24 +38,36 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     
     wandb.log({"loss":closs/config.hyperparameters.batch_size})
     loop.close()
+    
     return loss.item()
 
-def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, scaler, stopping, global_metrics, label_metrics, config):  
-    for epoch in range(config.epoch, config.project.max_num_epochs):      
-        print(f'='.center(125, '='))
-        print(f'   BEGINNING EPOCH {epoch}:   '.center(125,'='))
+def train_loop(train_loader, 
+               val_loader, 
+               model, 
+               optimizer, 
+               scheduler, 
+               loss_fn, 
+               scaler, 
+               stopping, 
+               global_metrics, 
+               label_metrics, 
+               config
+               ):  
+    
+    for epoch in range(config.project.epoch, config.project.num_epochs):      
+        logging.info(f'Starting epoch {epoch}...')
 
-        config.epoch = epoch
+        config.project.epoch = epoch
         wandb.log({"epoch": epoch})
+        
         train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
+        
         # check accuracy
-        
-        print(f'='.center(125, '='))
-        print("Validating results ... \n")
-        
         val_loss = validate_fn(val_loader, model, loss_fn, scheduler, global_metrics, label_metrics, config)
         
         # save model
+        logging.info('Saving trained weights...')
+        
         checkpoint = {
             "epoch": epoch,
             "train_loss": train_loss,
@@ -68,16 +79,16 @@ def train_loop(train_loader, val_loader, model, optimizer, scheduler, loss_fn, s
                 
         save_checkpoint(checkpoint)
         
-        stopping(val_loss, checkpoint, checkpoint_path=f"data/checkpoints/{config.time}_best_checkpoint.pth.tar", epoch=epoch)
+        stopping(val_loss, checkpoint, checkpoint_path=f"data/checkpoints/{config.project.time}_best_checkpoint.pth.tar", epoch=epoch)
         
-        if stopping.early_stop: 
-            early_stop_validation(val_loader, model, global_metrics, label_metrics, config)
-            wandb.finish()
-            break
+        if not stopping.early_stop: continue
+            
+        early_stop_validation(val_loader, model, global_metrics, label_metrics, config)
+
+        break
     
     wandb.finish()
 
-    print(f'='.center(125, '='))
-    print("Training Finished")
+    logging.info('Training finished...')
 
     

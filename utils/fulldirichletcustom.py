@@ -43,12 +43,11 @@ class FullDirichletCalibratorCustom(FullDirichletCalibrator):
         for train, _ in cv.split(_X):           
             sli = len(train) // _j
             for i in tqdm(range(_j)): 
-                try:
-                    print('Before', self.calibrator_.weights_[0, 0])
-                except AttributeError:
-                    pass
-                self.calibrator_.fit(_X[train[i*sli:(i+1)*sli]], y[train[i*sli:(i+1)*sli]], *args, **kwargs)
-                print('After', self.calibrator_.weights_[0, 0])
+                self.calibrator_.fit(_X[train[i*sli:(i+1)*sli]], 
+                                     y[train[i*sli:(i+1)*sli]], 
+                                     *args, 
+                                     **kwargs
+                                     )
                 
         # self.calibrator_.fit(_X, y, *args, **kwargs)
         final_loss = log_loss(y_val, self.calibrator_.predict_proba(_X_val))
