@@ -19,12 +19,14 @@ class PhantomDCMDataset(data.Dataset):
                  image_dir: str,
                  mask_dir: str,
                  transforms: Compose,
-                 image_size: Tuple[int] = (2816, 3584)):
+                 labels: int = 4,
+                 image_size: Tuple[int] = (2816, 3584),
+                 **kwargs):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transforms = transforms
         self.image_size = image_size
-
+        self.labels = labels
         self.images = sorted(os.listdir(image_dir))
         self.masks = sorted(os.listdir(mask_dir))
 
@@ -45,12 +47,6 @@ class PhantomDCMDataset(data.Dataset):
         image = ((image - np.min(image)) / (np.max(image) - np.min(image)))
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE).astype(np.uint8)
 
-        # Make only 3 labels
-        # if self.threelabels is True:
-        #     mask[mask == 2] = 1
-        #     mask[mask == 3] = 2
-
-        # Applying transforms (ToTensorV2)
         if self.transform:
             augmentations = self.transform(image=image, mask=mask)
             image = augmentations["image"]
@@ -90,12 +86,6 @@ class PhantomTIFFDataset(data.Dataset):
 
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE).astype(np.uint8)
 
-        # Make only 3 labels
-        # if self.threelabels is True:
-        #     mask[mask == 2] = 1
-        #     mask[mask == 3] = 2
-
-        # Applying transforms (ToTensorV2)
         if self.transform:
             augmentations = self.transform(image=image, mask=mask)
             image = augmentations["image"]
@@ -115,45 +105,62 @@ class PhantomDCMData(pl.LightningDataModule):
         self.batch_size = self.cfg.dataset.params.batch_size
 
     def setup(self,
-              stage: Literal['training', 'testing', 'calibrating']
+              stage: Literal['training', 'validating',
+                             'testing', 'calibrating']
               ) -> None:
         if stage == 'training':
             self.train_data = self.get_dataset(
-                self.cfg.dataset.params.train_image_dir,
-                self.cfg.dataset.params.train_mask_dir
+                self.cfg.dataset.train_image_dir,
+                self.cfg.dataset.train_mask_dir,
+                stage, **self.cfg.dataset.params
                 )
             self.val_data = self.get_dataset(
-                self.cfg.dataset.params.val_image_dir,
-                self.cfg.dataset.params.val_mask_dir
+                self.cfg.dataset.val_image_dir,
+                self.cfg.dataset.val_mask_dir,
+                'validating', **self.cfg.dataset.params
                 )
-        if stage == 'testing':
+        elif stage == 'validating':
+            self.val_data = self.get_dataset(
+                self.cfg.dataset.val_image_dir,
+                self.cfg.dataset.val_mask_dir,
+                'validating', **self.cfg.dataset.params
+                )
+        elif stage == 'testing':
             self.test_data = self.get_dataset(
-                self.cfg.dataset.params.test_image_dir,
-                self.cfg.dataset.params.test_mask_dir
+                self.cfg.dataset.test_image_dir,
+                self.cfg.dataset.test_mask_dir,
+                stage, **self.cfg.dataset.params
                 )
-        if stage == 'calibrating':
+        elif stage == 'calibrating':
             self.calib_data = self.get_dataset(
-                self.cfg.dataset.params.calib_image_dir,
-                self.cfg.dataset.params.calib_mask_dir
+                self.cfg.dataset.calib_image_dir,
+                self.cfg.dataset.calib_mask_dir,
+                stage, **self.cfg.dataset.params
                 )
             self.test_data = self.get_dataset(
-                self.cfg.dataset.params.test_image_dir,
-                self.cfg.dataset.params.test_mask_dir
+                self.cfg.dataset.test_image_dir,
+                self.cfg.dataset.test_mask_dir,
+                stage, **self.cfg.dataset.params
                 )
 
     def get_dataset(self,
                     image_dir: str,
                     mask_dir: str,
-                    image_size: Tuple[int],
-                    train: bool = True,
+                    stage: Literal['training', 'testing',
+                                   'validation' 'calibrating'],
+                    **kwargs,
                     ) -> PhantomDCMDataset:
 
-        if train:
+        if stage == 'training':
             transforms = self.train_transforms()
-        else:
+        elif stage == 'validating':
+            transforms = self.val_transforms()
+        if stage == 'testing':
             transforms = self.test_transforms()
+        else:
+            transforms = self.calib_transforms()
 
-        return PhantomDCMDataset(image_dir, mask_dir, transforms, image_size)
+        return PhantomDCMDataset(image_dir, mask_dir, transforms, **kwargs)
 
     def train_transforms(self) -> Compose:
         augs = [load_obj(aug['class_name'])(**aug['params'])

@@ -1,7 +1,11 @@
 general:
-  logging_file: 'logging_file_milha.log'
-  log_dir:
-  checkpoint_dir:
+  logging_file: 'logging_treino.log'
+  log_dir: 'logs/'
+  checkpoint_dir: 'checkpoints/'
+  predictions_dir: "data/predictions/"
+  submissions_dir: "data/submissions/"
+  calibrations_dir: "data/calibrations/"
+  confidences_dir: "data/confidences/"
 trainer:
   max_epochs: 200
   check_val_every_n_epoch: 10
@@ -42,19 +46,7 @@ dataset:
   params:
     image_size: 
     - 2816
-      3584
-    train_img_dir: "D:/MamAria/data/train/phantom/"
-    train_mask_dir: "D:/MamAria/data/train/mask/"
-    val_img_dir: "D:/MamAria/data/val/phantom/"
-    val_mask_dir: "D:/MamAria/data/val/mask/"
-    test_img_dir: "D:/MamAria/data/test/phantom/"
-    test_mask_dir: "D:/MamAria/data/test/mask/"
-    calib_image_dir: "D:/MamAria/data/calib/phantom/"
-    calib_mask_dir: "D:/MamAria/data/calib/phantom/"
-    predictions_dir: "data/predictions/"
-    submissions_dir: "data/submissions/"
-    calibrations_dir: "data/calibrations/"
-    confidences_dir: "data/confidences/"
+    - 3584
     labels: 4
     label_map:
       0: 'background' 
@@ -63,6 +55,14 @@ dataset:
       3: 'high_risk'
     num_workers: 12
     batch_size: 4
+  train_img_dir: "D:/MamAria/data/train/phantom/"
+  train_mask_dir: "D:/MamAria/data/train/mask/"
+  val_img_dir: "D:/MamAria/data/val/phantom/"
+  val_mask_dir: "D:/MamAria/data/val/mask/"
+  test_img_dir: "D:/MamAria/data/test/phantom/"
+  test_mask_dir: "D:/MamAria/data/test/mask/"
+  calib_image_dir: "D:/MamAria/data/calib/phantom/"
+  calib_mask_dir: "D:/MamAria/data/calib/phantom/"
 training:
   class_name: UNETModule
   params:
@@ -81,9 +81,9 @@ criterion:
   params: 
     weights:
     - 1
-      1
-      1
-      1
+    - 1
+    - 1
+    - 1
 scheduler:
   class_name: torch.optim.lr_scheduler.ReduceLROnPlateau
   step: epoch
@@ -110,21 +110,73 @@ augmentation:
     # - class_name: albumentations.RandomBrightnessContrast
     #   params:
     #     p: 0.6
+    - class_name: albumentations.augmentations.crops.transforms.Crop
+      params:
+        x_min: 1016
+        y_min: 292
+        x_max: 2816
+        y_max: 3292
+    - class_name: albumentations.augmentations.geometric.resize.Resize
+      params:
+        height: height
+        width: width
+        p: 1.0
+        # interpolation: 
+        #   class_name: cv2.INTER_LANCZOS4
     - class_name: albumentations.pytorch.transforms.ToTensorV2
       params:
         p: 1.0
   val:
     augs:
+    - class_name: albumentations.augmentations.crops.transforms.Crop
+      params:
+        x_min: 1016
+        y_min: 292
+        x_max: 2816
+        y_max: 3292
+    - class_name: albumentations.augmentations.geometric.resize.Resize
+      params:
+        height: height
+        width: width
+        p: 1.0
+        # interpolation: 
+        #   class_name: cv2.INTER_LANCZOS4
     - class_name: albumentations.pytorch.transforms.ToTensorV2
       params:
         p: 1.0
   test:
     augs:
+    - class_name: albumentations.augmentations.crops.transforms.Crop
+      params:
+        x_min: 1016
+        y_min: 292
+        x_max: 2816
+        y_max: 3292
+    - class_name: albumentations.augmentations.geometric.resize.Resize
+      params:
+        height: height
+        width: width
+        p: 1.0
+        # interpolation: 
+        #   class_name: cv2.INTER_LANCZOS4
     - class_name: albumentations.pytorch.transforms.ToTensorV2
       params:
         p: 1.0
   calib:
     augs:
+    - class_name: albumentations.augmentations.crops.transforms.Crop
+      params:
+        x_min: 1016
+        y_min: 292
+        x_max: 2816
+        y_max: 3292
+    - class_name: albumentations.augmentations.geometric.resize.Resize
+      params:
+        height: height
+        width: width
+        p: 1.0
+        # interpolation: 
+        #   class_name: cv2.INTER_LANCZOS4
     - class_name: albumentations.pytorch.transforms.ToTensorV2
       params:
         p: 1.0
