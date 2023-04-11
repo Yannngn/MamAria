@@ -191,24 +191,24 @@ def get_metrics(config):
     device = get_device(config)
 
     global_metrics = [
-        torchmetrics.Accuracy(num_classes=num_classes, mdmc_average='global').to(device),
-        torchmetrics.Accuracy(num_classes=num_classes, average=average, mdmc_average='global').to(device),
-        torchmetrics.F1Score(num_classes=num_classes, average=average, mdmc_average='global').to(device),
-        torchmetrics.Precision(num_classes=num_classes, average=average, mdmc_average='global').to(device),
-        torchmetrics.Recall(num_classes=num_classes, average=average, mdmc_average='global').to(device),
-        torchmetrics.Specificity(num_classes=num_classes, average=average, mdmc_average='global').to(device),
-        torchmetrics.JaccardIndex(num_classes=num_classes, average=average, mdmc_average='global').to(device)
+        torchmetrics.Accuracy(num_classes=num_classes, mdmc_average='global').cpu(),
+        torchmetrics.Accuracy(num_classes=num_classes, average=average, mdmc_average='global').cpu(),
+        torchmetrics.F1Score(num_classes=num_classes, average=average, mdmc_average='global').cpu(),
+        torchmetrics.Precision(num_classes=num_classes, average=average, mdmc_average='global').cpu(),
+        torchmetrics.Recall(num_classes=num_classes, average=average, mdmc_average='global').cpu(),
+        torchmetrics.Specificity(num_classes=num_classes, average=average, mdmc_average='global').cpu(),
+        torchmetrics.JaccardIndex(num_classes=num_classes, average=average, mdmc_average='global').cpu()
     ]
 
     global_metrics_names = ["global accuracy", "weighted accuracy", "f1", "precision", "recall", "specificity", 'jaccard']
 
     label_metrics = [
-        torchmetrics.Accuracy(num_classes=num_classes, average=None, mdmc_average='global').to(device),
-        torchmetrics.F1Score(num_classes=num_classes, average=None, mdmc_average='global').to(device),
-        torchmetrics.Precision(num_classes=num_classes, average=None, mdmc_average='global').to(device),
-        torchmetrics.Recall(num_classes=num_classes, average=None, mdmc_average='global').to(device),
-        torchmetrics.Specificity(num_classes=num_classes, average=None, mdmc_average='global').to(device),
-        torchmetrics.JaccardIndex(num_classes=num_classes, average=None, mdmc_average='global').to(device)
+        torchmetrics.Accuracy(num_classes=num_classes, average=None, mdmc_average='global').cpu(),
+        torchmetrics.F1Score(num_classes=num_classes, average=None, mdmc_average='global').cpu(),
+        torchmetrics.Precision(num_classes=num_classes, average=None, mdmc_average='global').cpu(),
+        torchmetrics.Recall(num_classes=num_classes, average=None, mdmc_average='global').cpu(),
+        torchmetrics.Specificity(num_classes=num_classes, average=None, mdmc_average='global').cpu(),
+        torchmetrics.JaccardIndex(num_classes=num_classes, average=None, mdmc_average='global').cpu()
     ]
       
     label_metrics_names = ["accuracy", "f1", "precision", "recall", "specificity", 'jaccard']

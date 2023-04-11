@@ -1,0 +1,31 @@
+global/global accuracy,0.94512165
+global/weighted accuracy,0.9451216
+global/f1,0.94477934
+global/precision,0.9446023
+global/recall,0.9451216
+global/specificity,0.9817072
+global/jaccard,0.90346605
+label_0/accuracy,0.99918264
+label_1/accuracy,0.90542203
+label_2/accuracy,0.8383863
+label_3/accuracy,0.37903017
+label_0/f1,0.999581
+label_1/f1,0.8959233
+label_2/f1,0.84688735
+label_3/f1,0.4327669
+label_0/precision,0.99997973
+label_1/precision,0.8866217
+label_2/precision,0.85556257
+label_3/precision,0.50425774
+label_0/recall,0.99918264
+label_1/recall,0.90542203
+label_2/recall,0.8383863
+label_3/recall,0.37903017
+label_0/specificity,0.99997246
+label_1/specificity,0.9625673
+label_2/specificity,0.9699818
+label_3/specificity,0.99817747
+label_0/jaccard,0.9991624
+label_1/jaccard,0.8114683
+label_2/jaccard,0.7344359
+label_3/jaccard,0.27613437

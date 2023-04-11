@@ -1,24 +1,29 @@
 import numpy as np
 import torch
-
+from utils.utils import get_device
 from scipy.special import softmax
 
-def check_accuracy(predictions, targets, global_metrics, label_metrics):
-    dict_eval = evaluate_segmentation(predictions, targets, global_metrics, label_metrics)
+def check_accuracy(predictions, targets, global_metrics, label_metrics, config):
+    device = get_device(config)
+    dict_eval = evaluate_segmentation(predictions, targets, global_metrics, label_metrics, device)
 
     return dict_eval
 
-def evaluate_segmentation(prob: torch.tensor, label: torch.tensor, global_metrics, label_metrics) -> dict:
+def evaluate_segmentation(prob: torch.tensor, label: torch.tensor, global_metrics, label_metrics, device) -> dict:
     num_classes = prob.size(dim=1)
     dict_eval = {}
 
     for (metric, f) in global_metrics.items():
+        prob, label = prob.cpu(), label.cpu()
+
         #print(f"Calculating {metric} ...")
         result = f(prob, label).cpu().numpy()
+       # results = results.cpu().numpy()
         if result == np.nan: result = 0.
         dict_eval[f'global/{metric}'] = result
         
     for (metric, f) in label_metrics.items():
+        prob, label = prob.cpu(), label.cpu()
         result = f(prob, label).cpu().numpy()
         for i in range(num_classes):
             if result[i] == np.nan: result[i] = 0.

@@ -8,7 +8,7 @@ from utils.metrics import check_accuracy
 
 def log_predictions(data, label, predictions, global_metrics, label_metrics, config, step):
        
-    dict_eval = check_accuracy(predictions, label, global_metrics, label_metrics)
+    dict_eval = check_accuracy(predictions, label, global_metrics, label_metrics, config)
 
     #dict_eval['epoch'] = epoch
     #dict_eval['loss_train'] = loss_train
@@ -18,13 +18,13 @@ def log_predictions(data, label, predictions, global_metrics, label_metrics, con
     #save_ellipse_pred_as_imgs(val_loader, model, epoch, dict_eval, time=now, folder=CONFIG.PATHS.PREDICTIONS_DIR, device=device)
     #save_confidence_as_imgs(predictions, name, config)
 
-def log_calib(label, predictions, global_metrics, label_metrics, config, loader, model, device):
+def log_calib(label, predictions, global_metrics, label_metrics, config, model, device):
 
     pre, pos = save_calib(model, predictions, config)
-    results = results.to(device)
+    #results = results.to(device)
 
-    dict_pre_calib  = check_accuracy(pre, label, global_metrics, label_metrics)
-    dict_pos_calib  = check_accuracy(pos, label, global_metrics, label_metrics)
+    dict_pre_calib  = check_accuracy(pre, label, global_metrics, label_metrics, config)
+    dict_pos_calib  = check_accuracy(pos, label, global_metrics, label_metrics, config)
 
     save_confidence_as_imgs(pre, "pre", config)
     save_confidence_as_imgs(pos, "pos", config)

@@ -36,11 +36,12 @@ def save_predictions_separated(predictions, path, name, config):
     image = label_to_pixel(results, config)
     
     for j in range(image.size(0)):
-        path = f"{path}/{name}_{j}.png"
-        save_image(image[j,:,:,:], path)
+        path_ = f"{path}/{name}_{j}.png"
+        save_image(image[j,:,:,:], path_)
 
-def save_calib(model, predictions, config):
-    calib_path = os.path.join(config.paths.predictions_dir_pos_calib, config.project.time)
+def save_calib(model, predictions, config):        
+    calib_path = config.paths.calibrations_dir + f"{config.project.time}"
+
     make_dir(calib_path)
 
     save_predictions_separated(predictions, calib_path, 'PRE_calib', config)
@@ -49,7 +50,10 @@ def save_calib(model, predictions, config):
     scores = softmax_tensor_to_numpy(logits)
 
     results = model.predict_proba(scores)
-    results = results.reshape(48, 600, 360, 4) 
+    try:
+        results = results.reshape(48, 600, 360, 4) 
+    except ValueError:
+        results = results.reshape(24, 600, 360, 4) 
     results = torch.from_numpy(np.array(results))
     results = results.permute(0, 3, 1, 2)
 
@@ -109,7 +113,8 @@ def save_validation_as_imgs(loader, config):
 
 def save_confidence_as_imgs(predictions, name, config):
     print("=> Saving confidence of prediction as images ...")
-    img_path = os.path.join(config.paths.confidences_dir, config.project.time)
+    img_path = config.paths.confidences_dir + f"{config.project.time}"
+    
     make_dir(img_path)
 
     for p, preds in enumerate(predictions):

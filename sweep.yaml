@@ -1,5 +1,5 @@
 program: main.py
-project: "6_2022_sweep"
+project: "10_2022_sweep"
 entity: 'tail-upenn'
 
 method: bayes
@@ -8,11 +8,14 @@ metric:
     goal: minimize
 
 parameters:
-    optimizer:
+    batch_size:
+        values: [4, 6, 8, 10]
+
+    optimizer_fn:
         value: adam #[adam, sgd]
 
-    loss_function:
-        values: [crossentropy, focal, tversky]
+    loss_fn:
+        value: crossentropy # [crossentropy, focal, tversky]
 
     adam_learning_rate:
         min: .000001

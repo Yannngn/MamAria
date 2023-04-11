@@ -25,10 +25,10 @@ def calibration_metrics(logits: torch.Tensor, labels: torch.Tensor) -> None:
     labels_np = labels.cpu().float().numpy()
 
     #Numpy Version
-    logging.log(f'ECE: {ece_criterion.loss(logits_np,labels_np,15):.3f}')
+    logging.info(f'ECE: {ece_criterion.loss(logits_np,labels_np,15):.3f}')
 
     mce_criterion = metrics.MCELoss()
-    logging.log(f'MCE: {mce_criterion.loss(logits_np,labels_np):.3f}')
+    logging.info(f'MCE: {mce_criterion.loss(logits_np,labels_np):.3f}')
 
 def fit_calibrator(calibrator, logits: torch.Tensor, labels: torch.Tensor, lambda_: list, mu_: Optional[List], sample: Optional[List]=None):
     logits = flatten_logits(logits)
@@ -48,9 +48,9 @@ def fit_calibrator(calibrator, logits: torch.Tensor, labels: torch.Tensor, lambd
     if sample: gscv.fit(scores[sample], labels[sample])
     else: gscv.fit(scores, labels)
     
-    logging.log('Grid of parameters cross-validated')
-    logging.log(gscv.param_grid)
-    logging.log(f'Best parameters: {gscv.best_params_}')
+    logging.info('Grid of parameters cross-validated')
+    logging.info(gscv.param_grid)
+    logging.info(f'Best parameters: {gscv.best_params_}')
 
     return gscv
 
@@ -66,14 +66,14 @@ def plot_results(model, scores, labels, time, odir: bool) -> None:
     plt.savefig(f'data/plots/{time}_pre_{"odir" if odir else "full"}.png')
     
     loss = log_loss(labels, scores)
-    logging.log(f"TEST log-loss: UNET {loss:.2f}")
+    logging.info(f"TEST log-loss: UNET {loss:.2f}")
     
-    model.eval()
-    with torch.no_grad():
-        results = model.predict_proba(scores)
+    #model.eval()
+    #with torch.no_grad():
+    results = model.predict_proba(scores)
 
     loss = log_loss(labels, results)
-    logging.log(f"TEST log-loss: Calibrator {loss:.2f}")
+    logging.info(f"TEST log-loss: Calibrator {loss:.2f}")
 
     _ = plot_reliability_diagram(labels=labels, scores=results,
                                    class_names=['Background', 'Low', 'Mid', 'High'],

@@ -1,5 +1,5 @@
 wandb:
-    project_name: "10_2022_calibration_test"
+    project_name: "10_2022_predict"
     project_team: 'tail-upenn'
     online: True
 
@@ -14,7 +14,7 @@ project:
     epoch: 0 
 
 hyperparameters:
-    batch_size: 8
+    batch_size: 6
     weights: True
     
     optimizer_fn: adam
@@ -66,15 +66,15 @@ image:
 load:
     #path: E:\yann_folder\sweep_2022\PyTorch_Seg-master\data\checkpoints\20220619_013827_best_checkpoint.pth.tar
                                                                         #20220618_172353_best_checkpoint.pth
-    path: data\checkpoints\20221028_103225_best_checkpoint.pth.tar
+    path: E:\yann_folder\sweep_2022\2022-10\PyTorch_Seg\data\checkpoints\20221028_171513_best_checkpoint.pth.tar
 
 paths:
-    train_img_dir: "D:/MamAria/data/train/phantom/"
-    train_mask_dir: "D:/MamAria/data/train/mask/"
-    val_img_dir: "D:/MamAria/data/val/phantom/"
-    val_mask_dir: "D:/MamAria/data/val/mask/"
-    test_img_dir: "D:/MamAria/data/test/phantom/"
-    test_mask_dir: "D:/MamAria/data/test/mask/"
+    train_img_dir: "E:/yann_folder/sweep_2022/2022-05-data/train/phantom/"
+    train_mask_dir: "E:/yann_folder/sweep_2022/2022-05-data/train/mask/"
+    val_img_dir: "E:/yann_folder/sweep_2022/2022-05-data/val/phantom/"
+    val_mask_dir: "E:/yann_folder/sweep_2022/2022-05-data/val/mask/"
+    test_img_dir: "E:/yann_folder/sweep_2022/2022-05-data/test/phantom/"
+    test_mask_dir: "E:/yann_folder/sweep_2022/2022-05-data/test/mask/"
     predictions_dir: "data/predictions/"
     submissions_dir: "data/submissions/"
     calibrations_dir: "data/calibrations/"
