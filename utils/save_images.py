@@ -120,7 +120,10 @@ def save_confidence_as_imgs(predictions, name, config):
     for p, preds in enumerate(predictions):
         for l, label in enumerate(preds):
             path = f"{img_path}/confidence_{name}_{p}_{l}.png"
-            save_image(torch.squeeze(label), path, normalize=True,)
+            label = torch.squeeze(label).type(torch.float32)
+            label = ((label - torch.min(label)) / (torch.max(label) - torch.min(label)))
+            save_image(label, path, normalize=False,)
+            print('image saved in ', path)
 
 '''def save_test_as_imgs(loader, folder=CONFIG.PATHS.PREDICTIONS_DIR, time=0, device=DEVICE):
     print("=> Saving test images ...")
