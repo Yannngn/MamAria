@@ -109,7 +109,7 @@ if __name__ == '__main__':
     
     with open('config_prediction.yaml') as f:
         config = munchify(safe_load(f))  
-
+        config.project.time = NOW
     main(config)
     
 
