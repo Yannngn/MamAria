@@ -136,14 +136,16 @@ class UNETModule(pl.LightningModule):
                               'monitor': self.cfg.scheduler.monitor}]
 
     def configure_metrics(self):
-        self.global_metrics = [
-            load_obj(metrics['class_name'])(**metrics['params'])
+        self.global_metrics = {
+            metrics['class_name'].split('.')[-1]: load_obj(
+                metrics['class_name'])(**metrics['params'])
             for metrics in self.cfg.metrics['global']
-            ]
-        self.label_metrics = [
-            load_obj(metrics['class_name'])(**metrics['params'])
+            }
+        self.label_metrics = {
+            metrics['class_name'].split('.')[-1]: load_obj(
+                metrics['class_name'])(**metrics['params'])
             for metrics in self.cfg.metrics.label
-            ]
+            }
 
     def training_step(self, batch, batch_idx):
         self.model.train()
@@ -207,7 +209,7 @@ class UNETModule(pl.LightningModule):
 
         with_images = self.wandb_image_dict(log_dict)
         self.log(with_images)
-        
+
         self.validation_dict.clear()
 
         return {'log': log_dict}

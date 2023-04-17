@@ -1,10 +1,9 @@
 import torch
 import numpy as np
 
+
 class EarlyStopping:
-
-    def __init__(self, patience=15, mode="min", delta=0.001, wait = 50):
-
+    def __init__(self, patience=15, mode="min", delta=0.001, wait=50):
         self.patience = patience
         self.counter = 0
         self.mode = mode
@@ -17,7 +16,6 @@ class EarlyStopping:
             self.val_score = np.Inf
         else:
             self.val_score = -np.Inf
-
 
     def __call__(self, epoch_score, checkpoint, checkpoint_path, epoch):
 
@@ -33,7 +31,8 @@ class EarlyStopping:
             if epoch >= self.wait:
                 self.counter += 1
 
-                print(f"EarlyStopping counter: {self.counter} out of {self.patience}")
+                print(f'''EarlyStopping counter:
+                      {self.counter} out of {self.patience}''')
 
             if self.counter >= self.patience:
                 self.early_stop = True
@@ -42,12 +41,12 @@ class EarlyStopping:
             self.best_checkpoint(epoch_score, checkpoint, checkpoint_path)
             self.counter = 0
 
-
     def best_checkpoint(self, epoch_score, checkpoint, checkpoint_path):
 
         if epoch_score not in [-np.inf, np.inf, -np.nan, np.nan]:
 
-            print(f"Validation score improved ({self.val_score} --> {epoch_score}). Saving model!")
+            print(f'''Validation score improved
+                  ({self.val_score} --> {epoch_score}). Saving model!''')
 
             torch.save(checkpoint, checkpoint_path)
 
