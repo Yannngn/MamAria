@@ -1,4 +1,3 @@
-
 import torch
 from torch import nn, optim
 
@@ -13,6 +12,7 @@ class ModelWithTemperature(nn.Module):
         NB: Output of the neural network should be the classification logits,
             NOT the softmax (or log softmax)!
     """
+
     def __init__(self, model):
         super(ModelWithTemperature, self).__init__()
         self.model = model
@@ -60,13 +60,15 @@ class ModelWithTemperature(nn.Module):
 
         # Calculate NLL and ECE before temperature scaling
         before_temperature_nll = nll_criterion(logits, labels).item()
-        before_temperature_ece = ece_criterion.loss(logits.numpy(),
-                                                    labels.numpy(),
-                                                    15)
+        before_temperature_ece = ece_criterion.loss(
+            logits.numpy(), labels.numpy(), 15
+        )
         # before_temperature_ece = ece_criterion(logits, labels).item()
         # ece_2 = ece_criterion_2.loss(logits,labels)
-        print(f'''Before temperature - NLL: {before_temperature_nll:.3f},
-              ECE: {before_temperature_ece:.3f}''')
+        print(
+            f"""Before temperature - NLL: {before_temperature_nll:.3f},
+              ECE: {before_temperature_ece:.3f}"""
+        )
         # print(ece_2)
         # Next: optimize the temperature w.r.t. NLL
         optimizer = optim.LBFGS([self.temperature], lr=0.01, max_iter=50)
@@ -75,18 +77,20 @@ class ModelWithTemperature(nn.Module):
             loss = nll_criterion(self.temperature_scale(logits), labels)
             loss.backward()
             return loss
+
         optimizer.step(eval)
 
         # Calculate NLL and ECE after temperature scaling
-        after_temperature_nll = nll_criterion(self.temperature_scale(logits),
-                                              labels).item()
+        after_temperature_nll = nll_criterion(
+            self.temperature_scale(logits), labels
+        ).item()
         after_temperature_ece = ece_criterion.loss(
-            self.temperature_scale(logits).detach().numpy(),
-            labels.numpy(),
-            15
-            )
-        print(f'Optimal temperature: {self.temperature.item():.3f}')
-        print(f'''After temperature - NLL: {after_temperature_nll:.3f},
-              ECE: {after_temperature_ece:.3f}''')
+            self.temperature_scale(logits).detach().numpy(), labels.numpy(), 15
+        )
+        print(f"Optimal temperature: {self.temperature.item():.3f}")
+        print(
+            f"""After temperature - NLL: {after_temperature_nll:.3f},
+              ECE: {after_temperature_ece:.3f}"""
+        )
 
         return self

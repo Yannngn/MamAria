@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class TverskyLoss(nn.Module):
     def __init__(self, alpha: float, beta: float, weight: list) -> None:
         super(TverskyLoss, self).__init__()
@@ -10,15 +11,28 @@ class TverskyLoss(nn.Module):
         self.eps: float = 1e-6
         self.weight: list = weight
 
-    def forward(self,inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, inputs: torch.Tensor, target: torch.Tensor
+    ) -> torch.Tensor:
         if not torch.is_tensor(inputs):
-            raise TypeError(f"Input type is not a torch.Tensor. Got {type(inputs)}")
+            raise TypeError(
+                f"""Input type is not a torch.Tensor. Got {type(inputs)}"""
+            )
         if not len(inputs.shape) == 4:
-            raise ValueError(f"Invalid input shape, we expect BxNxHxW. Got: {inputs.shape}")
+            raise ValueError(
+                f"""Invalid input shape, we expect BxNxHxW.
+                Got: {inputs.shape}"""
+            )
         if not inputs.shape[-2:] == target.shape[-2:]:
-            raise ValueError(f"input and target shapes must be the same. Got: {inputs.shape} and {target.shape}")
+            raise ValueError(
+                f"""input and target shapes must be the same.
+                Got: {inputs.shape} and {target.shape}"""
+            )
         if not inputs.device == target.device:
-            raise ValueError(f"input and target must be in the same device. Got: {inputs.device, target.device}")
+            raise ValueError(
+                f"""input and target must be in the same device.
+                Got: {inputs.device, target.device}"""
+            )
         # compute softmax over the classes axis
         num_classes = inputs.shape[1]
         if num_classes == 1:
@@ -43,4 +57,4 @@ class TverskyLoss(nn.Module):
         denom = intersection + (self.alpha * fps) + (self.beta * fns)
         tversky_loss = (num / (denom + self.eps)).mean()
 
-        return torch.mean(1. - tversky_loss)
+        return torch.mean(1.0 - tversky_loss)

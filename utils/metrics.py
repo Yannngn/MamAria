@@ -1,38 +1,35 @@
 import numpy as np
 import torch
-
 from scipy.special import softmax
 
 
 def check_accuracy(predictions, targets, global_metrics, label_metrics):
-    dict_eval = evaluate_segmentation(predictions,
-                                      targets,
-                                      global_metrics,
-                                      label_metrics)
+    dict_eval = evaluate_segmentation(
+        predictions, targets, global_metrics, label_metrics
+    )
 
     return dict_eval
 
 
-def evaluate_segmentation(prob: torch.tensor,
-                          label: torch.tensor,
-                          global_metrics,
-                          label_metrics) -> dict:
+def evaluate_segmentation(
+    prob: torch.tensor, label: torch.tensor, global_metrics, label_metrics
+) -> dict:
     num_classes = prob.size(dim=1)
     dict_eval = {}
 
-    for (metric, f) in global_metrics.items():
+    for metric, f in global_metrics.items():
         # print(f"Calculating {metric} ...")
         result = f(prob, label).cpu().numpy()
         if result == np.nan:
-            result = 0.
-        dict_eval[f'global/{metric}'] = result
+            result = 0.0
+        dict_eval[f"global/{metric}"] = result
 
-    for (metric, f) in label_metrics.items():
+    for metric, f in label_metrics.items():
         result = f(prob, label).cpu().numpy()
         for i in range(num_classes):
             if result[i] == np.nan:
-                result[i] = 0.
-            dict_eval[f'label_{i}/{metric}'] = result[i]
+                result[i] = 0.0
+            dict_eval[f"label_{i}/{metric}"] = result[i]
 
     return dict_eval
 
@@ -46,15 +43,16 @@ class CELoss(object):
             self.bin_uppers = bin_boundaries[1:]
         else:
             # size of bins
-            bin_n = int(self.n_data/self.n_bins)
+            bin_n = int(self.n_data / self.n_bins)
 
             bin_boundaries = np.array([])
 
             probabilities_sort = np.sort(probabilities)
 
             for i in range(0, self.n_bins):
-                bin_boundaries = np.append(bin_boundaries,
-                                           probabilities_sort[i*bin_n])
+                bin_boundaries = np.append(
+                    bin_boundaries, probabilities_sort[i * bin_n]
+                )
             bin_boundaries = np.append(bin_boundaries, 1.0)
 
             self.bin_lowers = bin_boundaries[:-1]
@@ -70,14 +68,17 @@ class CELoss(object):
 
         self.labels = labels
         try:
-            self.confidences, self.predictions = torch.max(self.probabilities,
-                                                           dim=1)
+            self.confidences, self.predictions = torch.max(
+                self.probabilities, dim=1
+            )
         except TypeError:
             self.confidences, self.predictions = torch.max(
                 torch.from_numpy(self.probabilities), dim=1
-                )
+            )
         # print("pred", self.predictions.shape)
-        self.confidences, self.predictions = self.confidences.detach().numpy(),
+        self.confidences, self.predictions = (
+            self.confidences.detach().numpy(),
+        )
         self.predictions.detach().numpy()
         self.accuracies = np.equal(self.predictions, labels)
 
@@ -107,12 +108,13 @@ class CELoss(object):
             confidences = self.probabilities[:, index]
             accuracies = self.acc_matrix[:, index]
 
-        for i, (bin_lower, bin_upper) in enumerate(zip(self.bin_lowers,
-                                                       self.bin_uppers)):
+        for i, (bin_lower, bin_upper) in enumerate(
+            zip(self.bin_lowers, self.bin_uppers)
+        ):
             # Calculated |confidence - accuracy| in each bin
-            in_bin = np.greater(
-                confidences, bin_lower.item()
-                ) * np.less_equal(confidences, bin_upper.item())
+            in_bin = np.greater(confidences, bin_lower.item()) * np.less_equal(
+                confidences, bin_upper.item()
+            )
             self.bin_prop[i] = np.mean(in_bin)
             # print(accuracies.shape, in_bin.shape)
             if self.bin_prop[i].item() > 0:
@@ -150,9 +152,9 @@ class OELoss(MaxProbCELoss):
         super().loss(output, labels, n_bins, logits)
         return np.dot(
             self.bin_prop,
-            self.bin_conf * np.maximum(self.bin_conf - self.bin_acc,
-                                       np.zeros(self.n_bins))
-            )
+            self.bin_conf
+            * np.maximum(self.bin_conf - self.bin_acc, np.zeros(self.n_bins)),
+        )
 
 
 # https://arxiv.org/abs/1904.01685
@@ -171,7 +173,7 @@ class SCELoss(CELoss):
             super().compute_bins(i)
             sce += np.dot(self.bin_prop, self.bin_score)
 
-        return sce/self.n_class
+        return sce / self.n_class
 
 
 class TACELoss(CELoss):
@@ -190,11 +192,10 @@ class TACELoss(CELoss):
             super().compute_bins(i)
             tace += np.dot(self.bin_prop, self.bin_score)
 
-        return tace/self.n_class
+        return tace / self.n_class
 
 
 # create TACELoss with threshold fixed at 0
 class ACELoss(TACELoss):
-
     def loss(self, output, labels, n_bins=15, logits=True):
         return super().loss(output, labels, 0.0, n_bins, logits)

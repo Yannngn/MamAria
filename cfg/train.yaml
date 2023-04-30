@@ -29,32 +29,31 @@ callbacks:
     save_top_k: 3
     dirpath: ${general.checkpoint_dir}
     mode: ${training.params.mode}
-- class_name: finetuning_scheduler.FineTuningScheduler
-  params:
-    gen_ft_sched_only: true
-# - class_name: lightning.pytorch.callbacks.batch_size_finder.BatchSizeFinder
-#   params: 
-#     batch_arg_name: batch_size
 - class_name: lightning.pytorch.callbacks.lr_monitor.LearningRateMonitor
   params:
     logging_interval: epoch
 - class_name: lightning.pytorch.callbacks.lr_finder.LearningRateFinder
   params:
     update_attr: true
-dataset:
+data:
   class_name: PhantomDCMData
   params:
-    image_size: 
-    - 2816
-    - 3584
-    labels: 4
-    label_map:
-      0: 'background' 
-      1: 'low_risk'
-      2: 'moderate_risk'
-      3: 'high_risk'
     num_workers: 12
     batch_size: 4
+    pin_memory: true
+    drop_last: true
+  dataset:
+    class_name: PhantomDCMDataset
+    params:
+      image_size: 
+        - 2816
+        - 3584
+      labels: 4
+      label_map:
+        0: 'background' 
+        1: 'low_risk'
+        2: 'moderate_risk'
+        3: 'high_risk'
   train_img_dir: "D:/MamAria/data/train/phantom/"
   train_mask_dir: "D:/MamAria/data/train/mask/"
   val_img_dir: "D:/MamAria/data/val/phantom/"
@@ -99,17 +98,10 @@ model:
     max_layer_size: 1024
     in_channels: 1
     labels: ${dataset.params.labels}
-augmentation:
+transforms:
   compose:
     class_name: albumentations.Compose
-  train:
-    augs:
-    # - class_name: albumentations.Flip
-    #   params:
-    #     p: 0.6
-    # - class_name: albumentations.RandomBrightnessContrast
-    #   params:
-    #     p: 0.6
+  preprocessing:
     - class_name: albumentations.augmentations.crops.transforms.Crop
       params:
         x_min: 1016
@@ -123,60 +115,14 @@ augmentation:
         p: 1.0
         # interpolation: 
         #   class_name: cv2.INTER_LANCZOS4
-    - class_name: albumentations.pytorch.transforms.ToTensorV2
+  augs:
+    - class_name: albumentations.Flip
       params:
-        p: 1.0
-  val:
-    augs:
-    - class_name: albumentations.augmentations.crops.transforms.Crop
+        p: 0.6
+    - class_name: albumentations.RandomBrightnessContrast
       params:
-        x_min: 1016
-        y_min: 292
-        x_max: 2816
-        y_max: 3292
-    - class_name: albumentations.augmentations.geometric.resize.Resize
-      params:
-        height: height
-        width: width
-        p: 1.0
-        # interpolation: 
-        #   class_name: cv2.INTER_LANCZOS4
-    - class_name: albumentations.pytorch.transforms.ToTensorV2
-      params:
-        p: 1.0
-  test:
-    augs:
-    - class_name: albumentations.augmentations.crops.transforms.Crop
-      params:
-        x_min: 1016
-        y_min: 292
-        x_max: 2816
-        y_max: 3292
-    - class_name: albumentations.augmentations.geometric.resize.Resize
-      params:
-        height: height
-        width: width
-        p: 1.0
-        # interpolation: 
-        #   class_name: cv2.INTER_LANCZOS4
-    - class_name: albumentations.pytorch.transforms.ToTensorV2
-      params:
-        p: 1.0
-  calib:
-    augs:
-    - class_name: albumentations.augmentations.crops.transforms.Crop
-      params:
-        x_min: 1016
-        y_min: 292
-        x_max: 2816
-        y_max: 3292
-    - class_name: albumentations.augmentations.geometric.resize.Resize
-      params:
-        height: height
-        width: width
-        p: 1.0
-        # interpolation: 
-        #   class_name: cv2.INTER_LANCZOS4
+        p: 0.6
+  final:
     - class_name: albumentations.pytorch.transforms.ToTensorV2
       params:
         p: 1.0

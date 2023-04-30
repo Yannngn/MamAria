@@ -1,20 +1,22 @@
+import logging
 
 import jax.numpy as np
-import logging
 import numpy as raw_np
 import scipy
-
-from dirichletcal.calib.fulldirichlet import FullDirichletCalibrator
-from dirichletcal.calib.multinomial import (MultinomialRegression,
-                                            _get_weights,
-                                            _gradient,
-                                            _newton_update,
-                                            _objective)
-from dirichletcal.utils import clip_for_log
-# from sklearn.metrics import log_loss
+from fulldirichlet import FullDirichletCalibrator
+from multinomial import (
+    MultinomialRegression,
+    _get_weights,
+    _gradient,
+    _newton_update,
+    _objective,
+)
+from sklearn.metrics import log_loss
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import label_binarize
 from tqdm import tqdm
+
+from utils import clip_for_log
 
 
 class FullDirichletCalibratorCustom(FullDirichletCalibrator):
@@ -29,34 +31,37 @@ class FullDirichletCalibratorCustom(FullDirichletCalibrator):
 
         _X = np.copy(X)
         _X = np.log(clip_for_log(_X))
-        # _X_val = np.copy(X_val)
-        # _X_val = np.log(clip_for_log(X_val))
+        _X_val = np.copy(X_val)
+        _X_val = np.log(clip_for_log(X_val))
 
         n_folds = 3
         _j = 4
         cv = KFold(n_folds)
 
         # weights_ = None
-        self.calibrator_ = MultinomialRegression(method='Full',
-                                                 # weights_0= weights_,
-                                                 reg_lambda=self.reg_lambda,
-                                                 reg_mu=self.reg_mu,
-                                                 reg_norm=self.reg_norm,
-                                                 ref_row=self.ref_row,
-                                                 optimizer=self.optimizer)
+        self.calibrator_ = MultinomialRegression(
+            method="Full",
+            # weights_0= weights_,
+            reg_lambda=self.reg_lambda,
+            reg_mu=self.reg_mu,
+            reg_norm=self.reg_norm,
+            ref_row=self.ref_row,
+            optimizer=self.optimizer,
+        )
 
         print(f"""Running {n_folds} Folds with {_j} Slices of data""")
         for train, _ in cv.split(_X):
             sli = len(train) // _j
             for i in tqdm(range(_j)):
-                self.calibrator_.fit(_X[train[i*sli:(i+1)*sli]],
-                                     y[train[i*sli:(i+1)*sli]],
-                                     *args,
-                                     **kwargs
-                                     )
+                self.calibrator_.fit(
+                    _X[train[i * sli : (i + 1) * sli]],  # noqa: W
+                    y[train[i * sli : (i + 1) * sli]],  # noqa: W
+                    *args,
+                    **kwargs,
+                )
 
-        # self.calibrator_.fit(_X, y, *args, **kwargs)
-        # final_loss = log_loss(y_val, self.calibrator_.predict_proba(_X_val))
+        self.calibrator_.fit(_X, y, *args, **kwargs)
+        _ = log_loss(y_val, self.calibrator_.predict_proba(_X_val))
 
         return self
 
@@ -84,41 +89,57 @@ class MultinomialRegressionCustom(MultinomialRegression):
         target = label_binarize(y, classes=self.classes)
 
         if k == 2:
-            target = np.hstack([1-target, target])
+            target = np.hstack([1 - target, target])
 
         n, m = X_.shape
 
-        XXT = (X_.repeat(m, axis=1) * np.hstack([X_]*m)).reshape((n, m, m))
+        XXT = (X_.repeat(m, axis=1) * np.hstack([X_] * m)).reshape((n, m, m))
 
         logging.debug(self.method)
 
         self.weights_0_ = self._get_initial_weights(self.initializer)
 
-        if (self.optimizer == 'newton'
-                or (self.optimizer == 'auto' and k <= 36)):
-
-            weights = _newton_update(self.weights_0_, X_, XXT, target, k,
-                                     self.method, reg_lambda=self.reg_lambda,
-                                     reg_mu=self.reg_mu, ref_row=self.ref_row,
-                                     initializer=self.initializer,
-                                     reg_format=self.reg_format)
-        elif (self.optimizer == 'fmin_l_bfgs_b'
-                or (self.optimizer == 'auto' and k > 36)):
-
-            res = scipy.optimize.fmin_l_bfgs_b(func=_objective,
-                                               fprime=_gradient_np,
-                                               x0=self.weights_0_,
-                                               args=(X_, XXT, target, k,
-                                                     self.method,
-                                                     self.reg_lambda,
-                                                     self.reg_mu, self.ref_row,
-                                                     self.initializer,
-                                                     self.reg_format),
-                                               maxls=128,
-                                               factr=1.0)
+        if self.optimizer == "newton" or (
+            self.optimizer == "auto" and k <= 36
+        ):
+            weights = _newton_update(
+                self.weights_0_,
+                X_,
+                XXT,
+                target,
+                k,
+                self.method,
+                reg_lambda=self.reg_lambda,
+                reg_mu=self.reg_mu,
+                ref_row=self.ref_row,
+                initializer=self.initializer,
+                reg_format=self.reg_format,
+            )
+        elif self.optimizer == "fmin_l_bfgs_b" or (
+            self.optimizer == "auto" and k > 36
+        ):
+            res = scipy.optimize.fmin_l_bfgs_b(
+                func=_objective,
+                fprime=_gradient_np,
+                x0=self.weights_0_,
+                args=(
+                    X_,
+                    XXT,
+                    target,
+                    k,
+                    self.method,
+                    self.reg_lambda,
+                    self.reg_mu,
+                    self.ref_row,
+                    self.initializer,
+                    self.reg_format,
+                ),
+                maxls=128,
+                factr=1.0,
+            )
             weights = res[0]
         else:
-            raise ValueError('Unknown optimizer: {}'.format(self.optimizer))
+            raise ValueError("Unknown optimizer: {}".format(self.optimizer))
 
         self.weights_ = _get_weights(weights, k, self.ref_row, self.method)
 
