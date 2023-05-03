@@ -1,10 +1,10 @@
 wandb:
-    project_name: "test"
-    project_team: 'tail-upenn'
+    project_name: test
+    project_team: tail-upenn
     online: false
 
 project:
-    device: 'gpu'
+    device: gpu
     num_workers: 12
     num_epochs: 3
     pin_memory: True
@@ -49,8 +49,8 @@ calibration:
     custom: True
 
 image:
-    phantom_format: 'dcm'
-    mask_format: 'png'
+    phantom_format: dcm
+    mask_format: png
     image_height: 600
     image_width: 360
     image_channels: 1
@@ -58,22 +58,22 @@ image:
     mask_labels: 4
 
     labels: 
-        0: 'background' 
-        1: 'low_risk'
-        2: 'moderate_risk'
-        3: 'high_risk'
+        0: background 
+        1: low_risk
+        2: moderate_risk
+        3: high_risk
 
 load:
-    path: my_checkpoint.pth.tar
+    path: data/checkpoints/20230502_215115_best_checkpoint.pth.tar
 
 paths:
-    train_img_dir: "data/train/phantom/"
-    train_mask_dir: "data/train/mask/"
-    val_img_dir: "data/val/phantom/"
-    val_mask_dir: "data/val/mask/"
-    test_img_dir: "data/test/phantom/"
-    test_mask_dir: "data/test/mask/"
-    predictions_dir: "data/predictions/"
-    submissions_dir: "data/submissions/"
-    calibrations_dir: "data/calibrations/"
-    confidences_dir: "data/confidences/"
+    train_img_dir: data/train/phantom/
+    train_mask_dir: data/train/mask/
+    val_img_dir: data/val/phantom/
+    val_mask_dir: data/val/mask/
+    test_img_dir: data/test/phantom/
+    test_mask_dir: data/test/mask/
+    predictions_dir: data/predictions/
+    submissions_dir: data/submissions/
+    calibrations_dir: data/calibrations/
+    confidences_dir: data/confidences/

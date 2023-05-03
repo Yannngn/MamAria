@@ -14,9 +14,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from yaml import safe_load
 
-from calibrators.minibatch_fulldirichlet import (
-    MiniBatchFullDirichletCalibrator,
-)
+from calibrators.fulldirichlet import FullDirichletCalibrator
+from calibrators.minibatch_fulldirichlet import MiniBatchFullDirichletCalibrator
 from calibrators.utils import calibration_metrics, plot_results
 from models.unet import UNET
 from utils.utils import (
@@ -31,9 +30,7 @@ from utils.utils import (
 
 def load_torch_model(config):
     device = get_device(config)
-    assert os.path.isfile(config.load.path), print(
-        "checkpoint path was not provided"
-    )
+    assert os.path.isfile(config.load.path), print("checkpoint path was not provided")
 
     model = UNET(config).to(device)
     model = nn.DataParallel(model)
@@ -45,28 +42,20 @@ def load_torch_model(config):
 
 def load_data(config):
     _, val_transforms, calib_transforms = get_transforms(config)
-    _, val_loader, calib_loader = get_loaders(
-        config, None, val_transforms, calib_transforms
-    )
+    _, val_loader, calib_loader = get_loaders(config, None, val_transforms, calib_transforms)
 
     return val_loader, calib_loader
 
 
 def main(config):
     prediction_path = "data/predictions/"
-    odir = False
-    lambda_ = [1e-3]  # [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+    odir = True
+    lambda_ = [1e-2]  # [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
     mu_ = lambda_ if odir else [None]
 
     model = load_torch_model(config)
     loss_fn = get_loss_function(config)
     val_loader, calib_loader = load_data(config)
-
-    # scores, labels = predict(model, val_loader, loss_fn)
-    # np.save(os.path.join(prediction_path, "4_img_scores.npy"),
-    #         scores[: 4 * 360 * 600])
-    # np.save(os.path.join(prediction_path, "4_img_labels.npy"),
-    #         labels[: 4 * 360 * 600])
 
     if os.path.isfile(os.path.join(prediction_path, "val_scores.npy")):
         scores = np.load(os.path.join(prediction_path, "val_scores.npy"))
@@ -75,10 +64,12 @@ def main(config):
         scores, labels = predict(model, val_loader, loss_fn)
         np.save(os.path.join(prediction_path, "val_scores.npy"), scores)
         np.save(os.path.join(prediction_path, "val_labels.npy"), labels)
-
+    print(scores.min(), scores.max())
     calibrator = calibrate(scores, labels, lambda_, mu_)
     weights = calibrator.weights
     logging.info(weights)
+
+    del scores, labels
 
     if os.path.isfile(os.path.join(prediction_path, "calib_scores.npy")):
         scores = np.load(os.path.join(prediction_path, "calib_scores.npy"))
@@ -91,18 +82,22 @@ def main(config):
     plot_results(calibrator, scores, labels, NOW, odir)
 
 
-@profile
 def calibrate(
     scores: np.ndarray,
     labels: np.ndarray,
     lambda_: List[float],
     mu_: List[float | None],
 ):
-    calibrator = MiniBatchFullDirichletCalibrator(
-        reg_lambda=lambda_, reg_mu=mu_, max_iter=1
-    )
+    mini_batch = True
+    if mini_batch:
+        calibrator = MiniBatchFullDirichletCalibrator(reg_lambda=lambda_[0], reg_mu=mu_[0], max_iter=1, ref_row=False)
+    else:
+        calibrator = FullDirichletCalibrator(reg_lambda=lambda_[0], reg_mu=mu_[0])
 
-    skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=0)
+    calibrator.fit(scores, labels)
+    return calibrator
+
+    skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=0)
 
     gscv = GridSearchCV(
         calibrator,
@@ -182,8 +177,36 @@ def predict(
     return scores, labels
 
 
+def save_example(
+    model,
+    loader,
+    loss_fn,
+    width: int = 360,
+    height: int = 600,
+    output_path: str = "data/predictions/",
+    num: int | None = None,
+    prefix: str | None = None,
+):
+    scores, labels = predict(model, loader, loss_fn)
+
+    if not prefix:
+        prefix = ""
+
+    prefix = f"{num}_{prefix}" if num else prefix
+
+    np.save(
+        os.path.join(output_path, f"{prefix}images_scores.npy"),
+        scores[: num * width * height],
+    )
+    np.save(
+        os.path.join(output_path, f"{prefix}images_labels.npy"),
+        labels[: num * width * height],
+    )
+
+
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger("jax._src.lib.xla_bridge").addFilter(lambda _: False)
     # warnings.filterwarnings("ignore")
 
     torch.cuda.empty_cache()

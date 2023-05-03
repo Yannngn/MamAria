@@ -38,9 +38,7 @@ class PhantomDCMDataset(data.Dataset):
     def __getitem__(self, idx):
         # Get Image and corresponding Mask paths
         image_path = os.path.join(self.image_dir, self.images[idx])
-        mask_path = os.path.join(self.mask_dir, self.images[idx]).replace(
-            "_proj.dcm", "_risk.png"
-        )
+        mask_path = os.path.join(self.mask_dir, self.images[idx]).replace("_proj.dcm", "_risk.png")
 
         # Convert Image and Mask to numpy
         image = pydicom.read_file(image_path)
@@ -72,9 +70,7 @@ class PhantomTIFFDataset(data.Dataset):
     def __getitem__(self, idx):
         # Get Image and corresponding Mask paths
         image_path = os.path.join(self.image_dir, self.images[idx])
-        mask_path = os.path.join(
-            self.mask_dir, self.images[idx].replace(".tiff", "_mask.png")
-        )
+        mask_path = os.path.join(self.mask_dir, self.images[idx].replace(".tiff", "_mask.png"))
 
         # Convert Image and Mask to numpy
         image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -154,36 +150,19 @@ class PhantomData(pl.LightningDataModule):
         else:
             transforms = self.transforms(False)
 
-        return load_obj(self.cfg.data.dataset.class_name)(
-            image_dir, mask_dir, transforms, **kwargs
-        )
+        return load_obj(self.cfg.data.dataset.class_name)(image_dir, mask_dir, transforms, **kwargs)
 
     def transforms(self, training=True) -> Compose:
         transforms = []
         transforms.extend(
-            [
-                load_obj(step["class_name"])(**step["params"])
-                for step in self.cfg.transforms.preprocessing
-            ]
+            [load_obj(step["class_name"])(**step["params"]) for step in self.cfg.transforms.preprocessing]
         )
         if training:
-            transforms.extend(
-                [
-                    load_obj(aug["class_name"])(**aug["params"])
-                    for aug in self.cfg.transforms.augs
-                ]
-            )
+            transforms.extend([load_obj(aug["class_name"])(**aug["params"]) for aug in self.cfg.transforms.augs])
 
-        transforms.extend(
-            [
-                load_obj(step["class_name"])(**step["params"])
-                for step in self.cfg.transforms.final
-            ]
-        )
+        transforms.extend([load_obj(step["class_name"])(**step["params"]) for step in self.cfg.transforms.final])
 
-        compose = load_obj(self.cfg.augmentation.compose.class_name)(
-            transforms
-        )
+        compose = load_obj(self.cfg.augmentation.compose.class_name)(transforms)
 
         return compose
 

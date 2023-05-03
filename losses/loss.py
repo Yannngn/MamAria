@@ -11,13 +11,9 @@ class TverskyLoss(nn.Module):
         self.eps: float = 1e-6
         self.weight: list = weight
 
-    def forward(
-        self, inputs: torch.Tensor, target: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         if not torch.is_tensor(inputs):
-            raise TypeError(
-                f"""Input type is not a torch.Tensor. Got {type(inputs)}"""
-            )
+            raise TypeError(f"""Input type is not a torch.Tensor. Got {type(inputs)}""")
         if not len(inputs.shape) == 4:
             raise ValueError(
                 f"""Invalid input shape, we expect BxNxHxW.

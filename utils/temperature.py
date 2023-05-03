@@ -60,9 +60,7 @@ class ModelWithTemperature(nn.Module):
 
         # Calculate NLL and ECE before temperature scaling
         before_temperature_nll = nll_criterion(logits, labels).item()
-        before_temperature_ece = ece_criterion.loss(
-            logits.numpy(), labels.numpy(), 15
-        )
+        before_temperature_ece = ece_criterion.loss(logits.numpy(), labels.numpy(), 15)
         # before_temperature_ece = ece_criterion(logits, labels).item()
         # ece_2 = ece_criterion_2.loss(logits,labels)
         print(
@@ -81,12 +79,8 @@ class ModelWithTemperature(nn.Module):
         optimizer.step(eval)
 
         # Calculate NLL and ECE after temperature scaling
-        after_temperature_nll = nll_criterion(
-            self.temperature_scale(logits), labels
-        ).item()
-        after_temperature_ece = ece_criterion.loss(
-            self.temperature_scale(logits).detach().numpy(), labels.numpy(), 15
-        )
+        after_temperature_nll = nll_criterion(self.temperature_scale(logits), labels).item()
+        after_temperature_ece = ece_criterion.loss(self.temperature_scale(logits).detach().numpy(), labels.numpy(), 15)
         print(f"Optimal temperature: {self.temperature.item():.3f}")
         print(
             f"""After temperature - NLL: {after_temperature_nll:.3f},

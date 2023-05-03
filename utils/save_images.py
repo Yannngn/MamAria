@@ -2,19 +2,17 @@ import os
 
 import numpy as np
 import torch
-import wandb
+from torch.nn import functional as F
 from torchvision.utils import save_image
 
-from calibrators.utils import flatten_logits, softmax_tensor_to_numpy
+import wandb
 from utils.post_processing import label_to_pixel
 
 # , get_confidence_of_prediction, fit_ellipses_on_image, get_confidence_of_prediction # noqa: W
 from utils.utils import get_device, wandb_mask
 
 
-def save_predictions_as_imgs(
-    data, label, predictions, config, step, dict_eval
-):
+def save_predictions_as_imgs(data, label, predictions, config, step, dict_eval):
     img_path = os.path.join(
         config.paths.predictions_dir,
         f"{config.project.time}_pred_e{config.project.epoch}_i{step}.png",
@@ -32,9 +30,7 @@ def save_predictions_as_imgs(
         local_label = label[j].cpu().numpy()
         local_pred = preds_labels[j].cpu().numpy()
 
-        wandb_image = wandb_mask(
-            local_data, local_label, config.image.labels, local_pred
-        )
+        wandb_image = wandb_mask(local_data, local_label, config.image.labels, local_pred)
 
         dict_eval[f"image_{_id:02d}"] = wandb_image
 
@@ -51,15 +47,13 @@ def save_predictions_separated(predictions, path, name, config):
 
 
 def save_calib(model, predictions, config):
-    calib_path = os.path.join(
-        config.paths.predictions_dir_pos_calib, config.project.time
-    )
+    calib_path = os.path.join(config.paths.predictions_dir_pos_calib, config.project.time)
     os.makedirs(calib_path, exist_ok=True)
 
     save_predictions_separated(predictions, calib_path, "PRE_calib", config)
 
-    logits = flatten_logits(predictions)
-    scores = softmax_tensor_to_numpy(logits)
+    scores = F.softmax(predictions, dim=1)
+    scores = scores.permute(0, 2, 3, 1).flatten(end_dim=2).cpu().numpy()
 
     results = model.predict_proba(scores)
     results = results.reshape(48, 600, 360, 4)
@@ -69,8 +63,8 @@ def save_calib(model, predictions, config):
     save_predictions_separated(results, calib_path, "POS_calib", config)
 
     return (
-        torch.nn.functional.softmax(predictions, 1),
-        torch.nn.functional.softmax(results, 1),
+        F.softmax(predictions, 1),
+        F.softmax(results, 1),
     )
 
 
@@ -98,9 +92,7 @@ def save_validation_as_imgs(loader, config):
                 local_data = x[j].squeeze(0).cpu().numpy()
                 local_label = y[j].cpu().numpy()
 
-                wandb_image = wandb_mask(
-                    local_data, local_label, config.image.labels
-                )
+                wandb_image = wandb_mask(local_data, local_label, config.image.labels)
                 dict_val[f"image_{_id:02d}"] = wandb_image
 
     wandb.log(dict_val)
@@ -115,9 +107,7 @@ def save_confidence_as_imgs(predictions, name, config):
         for idx, label in enumerate(preds):
             path = os.path.join(img_path, f"confidence_{name}_{p}_{idx}.png")
             label = torch.squeeze(label).type(torch.float32)
-            label = (label - torch.min(label)) / (
-                torch.max(label) - torch.min(label)
-            )  # noqa: W
+            label = (label - torch.min(label)) / (torch.max(label) - torch.min(label))  # noqa: W
             save_image(
                 label,
                 path,

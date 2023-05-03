@@ -5,10 +5,7 @@ from shutil import copyfile, rmtree
 import numpy as np
 from PIL import Image
 
-PATH = (
-    "/".join(os.path.abspath(__file__).split("\\")[:-2])
-    + "/LesionInserter-data/"
-)
+PATH = "/".join(os.path.abspath(__file__).split("\\")[:-2]) + "/LesionInserter-data/"
 OUT = "data/"
 
 # IMG_PATH = OUT + "submission/input/phantom/"
@@ -150,22 +147,13 @@ def shuffle_train_val(path, train_dir, val_dir):
     os.makedirs(phantom_val)
     os.makedirs(mask_val)
 
-    img_files = [
-        os.path.join(path, file)
-        for file in os.listdir(phantom_orig)
-        if file.endswith(".tiff")
-    ]
+    img_files = [os.path.join(path, file) for file in os.listdir(phantom_orig) if file.endswith(".tiff")]
     img_names = [filepath_to_name(img) for img in img_files]
 
     # example 'null_9_Richards_0000_00_00_008-crop'
 
     lesions = np.unique(["_".join(name.split("_")[:2]) for name in img_names])
-    phantoms = np.unique(
-        [
-            "_".join([name.split("_")[2], name.split("_")[-1]])
-            for name in img_names
-        ]
-    )
+    phantoms = np.unique(["_".join([name.split("_")[2], name.split("_")[-1]]) for name in img_names])
 
     names_per_index = []
 
@@ -173,8 +161,7 @@ def shuffle_train_val(path, train_dir, val_dir):
         names = [
             img
             for img in img_names
-            if (img.split("_")[2] == phantom.split("_")[0])
-            and (img.split("_")[-1] == phantom.split("_")[1])
+            if (img.split("_")[2] == phantom.split("_")[0]) and (img.split("_")[-1] == phantom.split("_")[1])
         ]
         names_per_index.append(names)
 
@@ -185,21 +172,14 @@ def shuffle_train_val(path, train_dir, val_dir):
     names_per_index = random.sample(names_per_index[:-1], a)
     names_per_index.append(["null_9_Stark_0000_00_00_000-crop"])
 
-    train_sort = random.choices(
-        np.array([[i] * c for i in range(1, b)]).flatten(), k=a - b - 1
-    )
+    train_sort = random.choices(np.array([[i] * c for i in range(1, b)]).flatten(), k=a - b - 1)
     train_sort.append(0)
     val_sort = list(range(b + 1))
     random.shuffle(val_sort)
 
-    train_names = [
-        names[train_sort[n]]
-        for n, names in enumerate(names_per_index[b + 1:])
-    ]
+    train_names = [names[train_sort[n]] for n, names in enumerate(names_per_index[b + 1 :])]
 
-    val_names = [
-        names[val_sort[n]] for n, names in enumerate(names_per_index[: b + 1])
-    ]
+    val_names = [names[val_sort[n]] for n, names in enumerate(names_per_index[: b + 1])]
 
     for file in val_names:
         copyfile(phantom_orig + file + ".tiff", phantom_val + file + ".tiff")

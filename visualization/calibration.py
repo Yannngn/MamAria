@@ -31,9 +31,7 @@ class ConfidenceHistogram(metrics.MaxProbCELoss):
         plt.yticks(ticks, map(str, ticks))
 
         # plot grid
-        plt.grid(
-            color="tab:grey", linestyle=(0, (1, 5)), linewidth=1, zorder=0
-        )
+        plt.grid(color="tab:grey", linestyle=(0, (1, 5)), linewidth=1, zorder=0)
         # plot histogram
         plt.hist(
             self.confidences,
@@ -51,14 +49,10 @@ class ConfidenceHistogram(metrics.MaxProbCELoss):
         plt.axvline(x=conf, color="tab:grey", linestyle="--", linewidth=3)
         if acc > conf:
             plt.text(acc + 0.03, 0.9, "Accuracy", rotation=90, fontsize=11)
-            plt.text(
-                conf - 0.07, 0.9, "Avg. Confidence", rotation=90, fontsize=11
-            )
+            plt.text(conf - 0.07, 0.9, "Avg. Confidence", rotation=90, fontsize=11)
         else:
             plt.text(acc - 0.07, 0.9, "Accuracy", rotation=90, fontsize=11)
-            plt.text(
-                conf + 0.03, 0.9, "Avg. Confidence", rotation=90, fontsize=11
-            )
+            plt.text(conf + 0.03, 0.9, "Avg. Confidence", rotation=90, fontsize=11)
 
         plt.ylabel("% of Samples", fontsize=13)
         plt.xlabel("Confidence", fontsize=13)
@@ -93,9 +87,7 @@ class ReliabilityDiagram(metrics.MaxProbCELoss):
         plt.xlim(0, 1)
         plt.ylim(0, 1)
         # plot grid
-        plt.grid(
-            color="tab:grey", linestyle=(0, (1, 5)), linewidth=1, zorder=0
-        )
+        plt.grid(color="tab:grey", linestyle=(0, (1, 5)), linewidth=1, zorder=0)
         # plot bars and identity line
         plt.bar(
             x,

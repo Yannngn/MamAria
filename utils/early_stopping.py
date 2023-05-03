@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import torch
 
@@ -30,7 +32,7 @@ class EarlyStopping:
             if epoch >= self.wait:
                 self.counter += 1
 
-                print(
+                logging.info(
                     f"""EarlyStopping counter:
                       {self.counter} out of {self.patience}"""
                 )
@@ -44,7 +46,7 @@ class EarlyStopping:
 
     def best_checkpoint(self, epoch_score, checkpoint, checkpoint_path):
         if epoch_score not in [-np.inf, np.inf, -np.nan, np.nan]:
-            print(
+            logging.info(
                 f"""Validation score improved
                   ({self.val_score} --> {epoch_score}). Saving model!"""
             )

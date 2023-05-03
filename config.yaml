@@ -9,7 +9,7 @@ project:
     num_epochs: 200
     pin_memory: True
     load_model: False
-    val_interval: 10
+    val_interval: 3
     time: 0
     epoch: 0 
 
@@ -36,11 +36,11 @@ hyperparameters:
     focal_gamma: 2
     
     scheduler_fn: warm
-    scheduler_patience: 5
+    scheduler_patience: 3
     
     earlystopping: True
-    earlystop_patience: 10
-    earlystop_wait: 10
+    earlystop_patience: 15
+    earlystop_wait: 15
 
 model:
     max_layer_size: 1024

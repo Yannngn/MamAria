@@ -1,34 +1,29 @@
-# import logging
+from typing import Literal
 
-import jax.numpy as jnp
 import numpy as np
-from jax.config import config
+from jax._src.config import config
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.metrics import log_loss
 from tqdm.auto import tqdm
 
 from calibrators.minibatch_multinomial import MiniBatchMultinomialRegression
+from calibrators.utils import clip_for_log
 
 config.update("jax_enable_x64", True)
-
-
-def clip_for_log(X):
-    eps = jnp.finfo(X.dtype).tiny
-    return jnp.clip(X, eps, 1 - eps)
 
 
 class MiniBatchFullDirichletCalibrator(BaseEstimator, RegressorMixin):
     def __init__(
         self,
-        reg_lambda=0.0,
-        reg_mu=None,
-        weights_init=None,
-        initializer="identity",
-        reg_norm=False,
-        ref_row=True,
-        optimizer="auto",
-        batch_size=1 * 360 * 600,
-        max_iter=1000,
+        reg_lambda: float = 0.0,
+        reg_mu: float | None = None,
+        weights_init: np.ndarray | None = None,
+        initializer: Literal["identity"] | None = "identity",
+        reg_norm: bool = False,
+        ref_row: bool = True,
+        optimizer: Literal["auto", "newton", "fmin_l_bfgs_b"] = "auto",
+        batch_size: int = 1 * 360 * 600,
+        max_iter: int = 1000,
     ):
         """
         Params:
@@ -54,13 +49,21 @@ class MiniBatchFullDirichletCalibrator(BaseEstimator, RegressorMixin):
         self.batch_size = batch_size
         self.max_iter = max_iter
 
-    def fit(self, X, y, X_val=None, y_val=None, *args, **kwargs):
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+        *args,
+        **kwargs,
+    ):
         self.weights_ = self.weights_init
         n_samples = X.shape[0]
         n_batches = n_samples // self.batch_size
         final_loss = []
 
-        if X_val is None:
+        if X_val is None or y_val is None:
             X_val = X.copy()
             y_val = y.copy()
 
@@ -74,24 +77,29 @@ class MiniBatchFullDirichletCalibrator(BaseEstimator, RegressorMixin):
             reg_mu=self.reg_mu,
             reg_norm=self.reg_norm,
             ref_row=self.ref_row,
-            optimizer=self.optimizer,
+            optimizer=self.optimizer,  # type: ignore
         )
 
         main_loop = tqdm(
-            range(self.max_iter), desc="Fold log_loss: 0.0", position=0
+            range(self.max_iter), desc=f"iter 0 of {self.max_iter}", postfix={"log_loss": 0.0}, position=0
         )
-        for _ in main_loop:
+        for idx in main_loop:
             iter_loss = []
+            main_loop.set_description_str(f"iter {idx} of {self.max_iter}")
 
             iter_loop = tqdm(
                 range(n_batches),
-                desc="Mini Batch log_loss: 0.0",
+                desc=f"Mini Batch 0 of {n_batches}",
+                postfix={"log_loss": 0.0},
                 position=1,
                 leave=False,
             )
-            for idx in iter_loop:
-                start_idx = idx * self.batch_size
-                end_idx = (idx + 1) * self.batch_size
+            for jdx in iter_loop:
+                iter_loop.set_description_str(f"Mini Batch {jdx} of {n_batches}")
+
+                start_idx = jdx * self.batch_size
+                end_idx = (jdx + 1) * self.batch_size
+
                 if end_idx > n_samples:
                     break
 
@@ -103,25 +111,16 @@ class MiniBatchFullDirichletCalibrator(BaseEstimator, RegressorMixin):
                 )
 
                 # valida mesmo com todos do _X_val e y_val?
-                step_loss = log_loss(
-                    y_val, self.calibrator_.predict_proba(X_val)
-                )
+                step_loss = log_loss(y_val, self.calibrator_.predict_proba(X_val))
 
-                iter_loop.set_description_str(
-                    f"Mini Batch log_loss: {step_loss:.3f}"
-                )
+                iter_loop.set_postfix(log_loss=round(step_loss, 3))
                 iter_loss.append(step_loss)
 
             iter_loss = np.mean(iter_loss)
             final_loss.append(iter_loss)
 
-            iter_loop.close()
-            main_loop.set_description_str(f"Fold log_loss: {iter_loss:.3f}")
-
-        main_loop.set_description_str(
-            f"Fold final log_loss: {np.mean(final_loss):.3f}"
-        )
-        main_loop.close()
+            main_loop.set_postfix(log_loss=round(iter_loss, 3))
+        main_loop.set_postfix(log_loss=round(np.mean(final_loss), 3))
 
         return self
 

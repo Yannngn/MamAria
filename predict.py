@@ -4,11 +4,11 @@ import warnings
 from datetime import datetime
 
 import torch
-import wandb
 from munch import munchify, unmunchify
 from tqdm import tqdm
 from yaml import safe_load
 
+import wandb
 from loggers.logs import log_predictions
 from models.unet import UNET
 from utils.utils import (
@@ -23,9 +23,7 @@ from utils.utils import (
 warnings.filterwarnings("ignore")
 
 
-def predict_fn(
-    test_loader, model, loss_fn, global_metrics, label_metrics, config
-):
+def predict_fn(test_loader, model, loss_fn, global_metrics, label_metrics, config):
     device = get_device(config)
     loop = tqdm(test_loader)
 
@@ -71,9 +69,7 @@ def main(config):
     model = UNET(config).to(device)
     model = torch.nn.DataParallel(model)
 
-    load_checkpoint(
-        torch.load(config.load.path), model, optimizer=None, scheduler=None
-    )
+    load_checkpoint(torch.load(config.load.path), model, optimizer=None, scheduler=None)
 
     loss_fn = get_loss_function(config)
 

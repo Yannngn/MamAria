@@ -5,23 +5,26 @@ import jax.numpy as jnp
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from pycalib.visualisations import plot_reliability_diagram
 from sklearn.metrics import log_loss
 
+from calibrators.visualization import plot_reliability_diagram
 from utils import metrics
 
 
-def clip_for_log(X):
+def clip_for_log(X, a_min=None, a_max=None):
+    """Clip the values in X between a_min and a_max"""
     eps = np.finfo(X.dtype).tiny
     return np.clip(X, eps, 1 - eps)
 
 
-def clip(X):
+def clip(X, a_min=None, a_max=None):
+    """Clip the values in X between a_min and a_max"""
     eps = np.finfo(X.dtype).tiny
     return np.clip(X, eps, 1 - eps)
 
 
-def clip_jax(X):
+def clip_jax(X, a_min=None, a_max=None):
+    """Clip the values in X between a_min and a_max"""
     eps = jnp.finfo(X.dtype).eps
     return jnp.clip(X, eps, 1 - eps)
 

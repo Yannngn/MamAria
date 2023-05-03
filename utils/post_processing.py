@@ -23,15 +23,11 @@ def fit_ellipses_on_image(image: torch.tensor, config) -> np.array:
     original = image.copy()
 
     for i, img in enumerate(original):
-        _, thresh = cv2.threshold(
-            src=img, thresh=lesion - 1, maxval=lesion, type=cv2.THRESH_BINARY
-        )
+        _, thresh = cv2.threshold(src=img, thresh=lesion - 1, maxval=lesion, type=cv2.THRESH_BINARY)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
         threshed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-        contours, _ = cv2.findContours(
-            threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
-        )
+        contours, _ = cv2.findContours(threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
         for cnts in contours:
             convex = cv2.convexHull(cnts)
@@ -58,9 +54,7 @@ def get_confidence_of_prediction(probs: torch.tensor, config) -> np.array:
 
     lesion_prob = probs[:, lesion]
     grayscale = np.array(lesion_prob.cpu() * 255, dtype=np.uint8)
-    color = np.zeros(
-        (grayscale.shape[0], grayscale.shape[1], grayscale.shape[2], 3)
-    )
+    color = np.zeros((grayscale.shape[0], grayscale.shape[1], grayscale.shape[2], 3))
 
     for i, img in enumerate(grayscale):
         heatmap = cv2.applyColorMap(img, cv2.COLORMAP_JET)

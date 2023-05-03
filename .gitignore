@@ -1,4 +1,5 @@
 .venv
+old_venv/*
 __pycache__
 *.7z
 *.pth.tar

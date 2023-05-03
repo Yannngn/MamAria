@@ -104,9 +104,7 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
 
         self.weights_0_ = self._get_initial_weights(self.initializer)
 
-        if self.optimizer == "newton" or (
-            self.optimizer == "auto" and k <= 36
-        ):
+        if self.optimizer == "newton" or (self.optimizer == "auto" and k <= 36):
             weights = _newton_update(
                 self.weights_0_,
                 X_,
@@ -120,12 +118,8 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
                 initializer=self.initializer,
                 reg_format=self.reg_format,
             )
-        elif self.optimizer == "fmin_l_bfgs_b" or (
-            self.optimizer == "auto" and k > 36
-        ):
-            _gradient_np = lambda *args, **kwargs: raw_np.array(
-                _gradient(*args, **kwargs)
-            )
+        elif self.optimizer == "fmin_l_bfgs_b" or (self.optimizer == "auto" and k > 36):
+            _gradient_np = lambda *args, **kwargs: raw_np.array(_gradient(*args, **kwargs))
 
             res = scipy.optimize.fmin_l_bfgs_b(
                 func=_objective,
@@ -194,14 +188,8 @@ def _objective(params, *args):
             reg = np.zeros((k, k + 1))
         loss = loss + reg_lambda * np.sum((weights - reg) ** 2)
     else:
-        weights_hat = weights - np.hstack(
-            [weights[:, :-1] * np.eye(k), np.zeros((k, 1))]
-        )
-        loss = (
-            loss
-            + reg_lambda * np.sum(weights_hat[:, :-1] ** 2)
-            + reg_mu * np.sum(weights_hat[:, -1] ** 2)
-        )
+        weights_hat = weights - np.hstack([weights[:, :-1] * np.eye(k), np.zeros((k, 1))])
+        loss = loss + reg_lambda * np.sum(weights_hat[:, :-1] ** 2) + reg_mu * np.sum(weights_hat[:, -1] ** 2)
 
     return loss
 
@@ -221,9 +209,7 @@ def _get_weights(params, k, ref_row, method):
         # weights[:-1, :] = params.reshape(-1, k + 1)
 
     elif method == "Diag":
-        raw_weights = np.hstack(
-            [np.diag(params[:k]), params[k:].reshape(-1, 1)]
-        )
+        raw_weights = np.hstack([np.diag(params[:k]), params[k:].reshape(-1, 1)])
         # weights[:, :-1][np.diag_indices(k)] = params[:]
 
     elif method == "FixDiag":
@@ -234,9 +220,7 @@ def _get_weights(params, k, ref_row, method):
         raise (ValueError("Unknown calibration method {}".format(method)))
 
     if ref_row:
-        weights = raw_weights - np.repeat(
-            raw_weights[-1, :].reshape(1, -1), k, axis=0
-        )
+        weights = raw_weights - np.repeat(raw_weights[-1, :].reshape(1, -1), k, axis=0)
     else:
         weights = raw_weights
 
@@ -247,9 +231,7 @@ def _get_identity_weights(n_classes, ref_row, method):
     raw_weights = None
 
     if (method is None) or (method == "Full"):
-        raw_weights = np.zeros((n_classes, n_classes + 1)) + np.hstack(
-            [np.eye(n_classes), np.zeros((n_classes, 1))]
-        )
+        raw_weights = np.zeros((n_classes, n_classes + 1)) + np.hstack([np.eye(n_classes), np.zeros((n_classes, 1))])
         raw_weights = raw_weights.ravel()
 
     elif method == "Diag":
@@ -356,9 +338,7 @@ def _newton_update(
                 logging.error(err)
                 updates = gradient
 
-        for step_size in np.hstack(
-            (np.linspace(1, 0.1, 10), np.logspace(-2, -32, 31))
-        ):
+        for step_size in np.hstack((np.linspace(1, 0.1, 10), np.logspace(-2, -32, 31))):
             tmp_w = weights - (updates * step_size).ravel()
 
             if np.any(np.isnan(tmp_w)):
@@ -398,19 +378,11 @@ def _newton_update(
                 float(raw_np.sum(raw_np.diff(L_list[-5:])) > 0) == 0
             ):
                 weights = tmp_w.copy()
-                logging.debug(
-                    "{}: Terminate as there is not enough changes on loss.".format(
-                        method_
-                    )
-                )
+                logging.debug("{}: Terminate as there is not enough changes on loss.".format(method_))
                 break
 
         if (L_list[-1] - L_list[-2]) > 0:
-            logging.debug(
-                "{}: Terminate as the loss increased {}.".format(
-                    method_, np.diff(L_list[-2:])
-                )
-            )
+            logging.debug("{}: Terminate as the loss increased {}.".format(method_, np.diff(L_list[-2:])))
             break
         else:
             weights = tmp_w.copy()

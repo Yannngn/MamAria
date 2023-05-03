@@ -21,9 +21,7 @@ class PhantomTIFFDataset(Dataset):
     def __getitem__(self, index):
         # Get Image and corresponding Mask paths
         img_path = os.path.join(self.image_dir, self.images[index])
-        mask_path = os.path.join(
-            self.mask_dir, self.images[index].replace(".tiff", "_mask.png")
-        )
+        mask_path = os.path.join(self.mask_dir, self.images[index].replace(".tiff", "_mask.png"))
 
         # Convert Image and Mask to numpy
         image = np.array(Image.open(img_path), dtype=np.float32)
@@ -64,9 +62,7 @@ class PhantomDCMDataset(Dataset):
     def __getitem__(self, index):
         # Get Image and corresponding Mask paths
         img_path = os.path.join(self.image_dir, self.images[index])
-        mask_path = os.path.join(
-            self.mask_dir, self.images[index].replace("_proj.dcm", "_risk.png")
-        )
+        mask_path = os.path.join(self.mask_dir, self.images[index].replace("_proj.dcm", "_risk.png"))
 
         # Convert Image and Mask to numpy
         image = pydicom.read_file(img_path)

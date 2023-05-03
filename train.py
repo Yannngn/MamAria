@@ -2,7 +2,7 @@ import logging
 import os
 
 import torch
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 import wandb
 from utils.utils import get_device, save_checkpoint
@@ -13,7 +13,13 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, config):
     device = get_device(config)
     logging.info("Training model...")
 
-    loop = tqdm(loader, bar_format="{l_bar}{bar:75}{r_bar}{bar:-75b}")
+    loop = tqdm(
+        loader,
+        position=1,
+        leave=False,
+        postfix={"loss": 0.0},
+        desc="Training One Epoch: ",
+    )
     closs = 0.0
 
     model.train()
@@ -62,15 +68,20 @@ def train_loop(
     name = f"{config.project.time}_best_checkpoint.pth.tar"
     best_checkpoint_path = os.path.join(checkpoint_dir, name)
 
-    for epoch in range(config.project.epoch, config.project.num_epochs):
+    outer_loop = tqdm(
+        range(config.project.epoch, config.project.num_epochs),
+        position=0,
+        postfix={"loss": 0.0, "val_loss": 0.0},
+        desc="Starting Training: ",
+    )
+    for idx, epoch in enumerate(outer_loop):
+        outer_loop.set_description_str(f"EPOCH {idx}|{config.project.num_epochs}: ")
         logging.info(f"Starting epoch {epoch}...")
 
         config.project.epoch = epoch
         wandb.log({"epoch": epoch})
 
-        train_loss = train_fn(
-            train_loader, model, optimizer, loss_fn, scaler, config
-        )
+        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, config)
 
         # check accuracy
         val_loss = validate_fn(
@@ -82,6 +93,8 @@ def train_loop(
             label_metrics,
             config,
         )
+
+        outer_loop.set_postfix(loss=train_loss, val_loss=val_loss)
 
         # save model
         logging.info("Saving trained weights...")
@@ -106,9 +119,7 @@ def train_loop(
             save_checkpoint(checkpoint)
             continue
 
-        early_stop_validation(
-            val_loader, model, global_metrics, label_metrics, config
-        )
+        early_stop_validation(val_loader, model, global_metrics, label_metrics, config)
 
         break
 

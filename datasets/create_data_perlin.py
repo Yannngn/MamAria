@@ -61,20 +61,12 @@ def get_slices(path, img_path=IMG_PATH, mask_path=MSK_PATH):
                 name = rename_image("_".join(folder.split("_")[1:])[:-5])
                 copyfile(
                     path + folder + f"/_recon_slice_{slice_number}.tiff",
-                    img_path
-                    + lesion
-                    + "_"
-                    + "_".join(name.split("_"))
-                    + ".tiff",
+                    img_path + lesion + "_" + "_".join(name.split("_")) + ".tiff",
                 )
 
                 copyfile(
                     path + folder[:-5] + f"_mask/_{slice_number}.png",
-                    mask_path
-                    + lesion
-                    + "_"
-                    + "_".join(name.split("_"))
-                    + "_mask.png",
+                    mask_path + lesion + "_" + "_".join(name.split("_")) + "_mask.png",
                 )
 
 
@@ -123,11 +115,7 @@ def shuffle_train_val(path, train_dir, val_dir, test_dir):
     os.makedirs(phantom_test)
     os.makedirs(mask_test)
 
-    img_files = [
-        os.path.join(path, file)
-        for file in os.listdir(phantom_orig)
-        if file.endswith(".tiff")
-    ]
+    img_files = [os.path.join(path, file) for file in os.listdir(phantom_orig) if file.endswith(".tiff")]
     img_names = [filepath_to_name(img) for img in img_files]
 
     names_per_index = []
@@ -136,11 +124,7 @@ def shuffle_train_val(path, train_dir, val_dir, test_dir):
     print(img_files)
 
     for phantom in phantoms:
-        names = [
-            img
-            for img in img_names
-            if (img.split("_")[3:] == phantom.split("_"))
-        ]
+        names = [img for img in img_names if (img.split("_")[3:] == phantom.split("_"))]
         names_per_index.append(names)
     random.shuffle(names_per_index)
 
@@ -151,21 +135,13 @@ def shuffle_train_val(path, train_dir, val_dir, test_dir):
 
     train_sort = [0] * a
 
-    train_names = [
-        names[train_sort[n]] for n, names in enumerate(names_per_index[:c])
-    ]
-    val_names = [
-        names[train_sort[n]] for n, names in enumerate(names_per_index[c:-e])
-    ]
-    test_names = [
-        names[train_sort[n]] for n, names in enumerate(names_per_index[-e:])
-    ]
+    train_names = [names[train_sort[n]] for n, names in enumerate(names_per_index[:c])]
+    val_names = [names[train_sort[n]] for n, names in enumerate(names_per_index[c:-e])]
+    test_names = [names[train_sort[n]] for n, names in enumerate(names_per_index[-e:])]
 
     for file in test_names:
         copyfile(phantom_orig + file + ".tiff", phantom_test + file + ".tiff")
-        copyfile(
-            mask_orig + file + "_mask.png", mask_test + file + "_mask.png"
-        )
+        copyfile(mask_orig + file + "_mask.png", mask_test + file + "_mask.png")
 
     for file in val_names:
         copyfile(phantom_orig + file + ".tiff", phantom_val + file + ".tiff")
@@ -173,9 +149,7 @@ def shuffle_train_val(path, train_dir, val_dir, test_dir):
 
     for file in train_names:
         copyfile(phantom_orig + file + ".tiff", phantom_train + file + ".tiff")
-        copyfile(
-            mask_orig + file + "_mask.png", mask_train + file + "_mask.png"
-        )
+        copyfile(mask_orig + file + "_mask.png", mask_train + file + "_mask.png")
 
 
 def filepath_to_name(full_name):

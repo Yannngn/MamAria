@@ -40,9 +40,7 @@ def main(config):
     # utilizar parametros do sweep caso tenha
     config.hyperparameters = munchify(wandb.config)
 
-    train_loader, val_loader, _ = get_loaders(
-        config, *get_transforms(config)
-    )  # Testar isso
+    train_loader, val_loader, _ = get_loaders(config, *get_transforms(config))  # Testar isso
 
     model = UNET(config).to(device)
     model = torch.nn.DataParallel(model)
@@ -61,11 +59,7 @@ def main(config):
     )
 
     config.project.epoch = (
-        load_checkpoint(
-            torch.load(config.load.path), model, optimizer, scheduler
-        )
-        if config.project.load_model
-        else 0
+        load_checkpoint(torch.load(config.load.path), model, optimizer, scheduler) if config.project.load_model else 0
     )
 
     global_metrics, label_metrics = get_metrics(config)
@@ -87,7 +81,7 @@ def main(config):
 
 
 if __name__ == "__main__":
-    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.WARNING)
     # warnings.filterwarnings("ignore")
 
     torch.cuda.empty_cache()

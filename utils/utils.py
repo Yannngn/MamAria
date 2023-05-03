@@ -23,11 +23,7 @@ def get_time():
 
 def get_device(config):
     if config.project.device == "gpu":
-        return (
-            torch.device("cuda")
-            if torch.cuda.is_available()
-            else torch.device("cpu")
-        )  # noqa: W
+        return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")  # noqa: W
 
     return torch.device("cpu")
 
@@ -93,9 +89,7 @@ def get_loaders(config, train_transform, val_transform, test_transform):
         train_loader = None
 
     if val_transform:
-        val_ds = PhantomDataset(
-            image_dir=val_dir, mask_dir=val_maskdir, transform=val_transform
-        )
+        val_ds = PhantomDataset(image_dir=val_dir, mask_dir=val_maskdir, transform=val_transform)
         val_loader = DataLoader(
             val_ds,
             batch_size=batch_size,
@@ -107,9 +101,7 @@ def get_loaders(config, train_transform, val_transform, test_transform):
         val_loader = None
 
     if test_transform:
-        test_ds = PhantomDataset(
-            image_dir=test_dir, mask_dir=test_maskdir, transform=test_transform
-        )
+        test_ds = PhantomDataset(image_dir=test_dir, mask_dir=test_maskdir, transform=test_transform)
         test_loader = DataLoader(
             test_ds,
             batch_size=batch_size,
@@ -129,11 +121,7 @@ def get_weights(config):
     multiplier = np.array(config.hyperparameters.multiplier)
     mask_dir = config.paths.train_mask_dir
     total_pixels = 0
-    mask_files = [
-        os.path.join(mask_dir, file)
-        for file in os.listdir(mask_dir)
-        if file.endswith(".png")
-    ]
+    mask_files = [os.path.join(mask_dir, file) for file in os.listdir(mask_dir) if file.endswith(".png")]
 
     for mask in mask_files:
         temp = []
@@ -158,9 +146,7 @@ def get_weights(config):
     return torch.tensor(out).float().to(device)
 
 
-def get_loss_function(
-    config, loss_list=[None, "crossentropy", "tversky", "focal"]
-):
+def get_loss_function(config, loss_list=[None, "crossentropy", "tversky", "focal"]):
     loss_fn = config.hyperparameters.loss_fn
     try:
         assert loss_fn in loss_list
@@ -169,9 +155,7 @@ def get_loss_function(
         raise aerr
 
     if loss_fn == "crossentropy":
-        weights = (
-            get_weights(config) if config.hyperparameters.weights else None
-        )  # noqa: W
+        weights = get_weights(config) if config.hyperparameters.weights else None  # noqa: W
         return nn.CrossEntropyLoss(weight=weights)
     elif loss_fn == "tversky":
         return losses.TverskyLoss(
@@ -198,9 +182,7 @@ def get_optimizer(config, parameters, optim_list=["adam", "sgd"]):
         raise aerr
 
     if optimizer == "adam":
-        return optim.Adam(
-            parameters, lr=config.hyperparameters.adam_learning_rate
-        )
+        return optim.Adam(parameters, lr=config.hyperparameters.adam_learning_rate)
     elif optimizer == "sgd":
         return optim.SGD(
             parameters,
@@ -211,9 +193,7 @@ def get_optimizer(config, parameters, optim_list=["adam", "sgd"]):
         )
 
 
-def get_scheduler(
-    config, optimizer, scheduler_list=["plateau", "cosine", "cyclic", "warm"]
-):
+def get_scheduler(config, optimizer, scheduler_list=["plateau", "cosine", "cyclic", "warm"]):
     scheduler_fn = config.hyperparameters.scheduler_fn
 
     try:
@@ -236,9 +216,7 @@ def get_scheduler(
     elif scheduler_fn == "cyclic":
         return lr_scheduler.CyclicLR(optimizer, max_lr=0.001, base_lr=0.00001)
     elif scheduler_fn == "warm":
-        return lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer, config.hyperparameters.scheduler_patience
-        )
+        return lr_scheduler.CosineAnnealingWarmRestarts(optimizer, config.hyperparameters.scheduler_patience)
     else:
         raise KeyError(f"scheduler {scheduler_fn} not recognized.")
 
@@ -250,9 +228,7 @@ def get_metrics(config):
     device = get_device(config)
 
     global_metrics = [
-        torchmetrics.Accuracy(
-            task="multiclass", num_classes=num_classes, mdmc_average="global"
-        ).to(device),
+        torchmetrics.Accuracy(task="multiclass", num_classes=num_classes, mdmc_average="global").to(device),
         torchmetrics.Accuracy(
             task="multiclass",
             num_classes=num_classes,
@@ -296,24 +272,12 @@ def get_metrics(config):
     ]
 
     label_metrics = [
-        torchmetrics.Accuracy(
-            task="multiclass", num_classes=num_classes, average=None
-        ).to(device),
-        torchmetrics.F1Score(
-            task="multiclass", num_classes=num_classes, average=None
-        ).to(device),
-        torchmetrics.Precision(
-            task="multiclass", num_classes=num_classes, average=None
-        ).to(device),
-        torchmetrics.Recall(
-            task="multiclass", num_classes=num_classes, average=None
-        ).to(device),
-        torchmetrics.Specificity(
-            task="multiclass", num_classes=num_classes, average=None
-        ).to(device),
-        torchmetrics.JaccardIndex(
-            task="multiclass", num_classes=num_classes, average=None
-        ).to(device),
+        torchmetrics.Accuracy(task="multiclass", num_classes=num_classes, average=None).to(device),
+        torchmetrics.F1Score(task="multiclass", num_classes=num_classes, average=None).to(device),
+        torchmetrics.Precision(task="multiclass", num_classes=num_classes, average=None).to(device),
+        torchmetrics.Recall(task="multiclass", num_classes=num_classes, average=None).to(device),
+        torchmetrics.Specificity(task="multiclass", num_classes=num_classes, average=None).to(device),
+        torchmetrics.JaccardIndex(task="multiclass", num_classes=num_classes, average=None).to(device),
     ]
 
     label_metrics_names = [
@@ -400,7 +364,5 @@ def wandb_mask(data, true_mask, labels, prediction=None):
 
     return wandb.Image(
         data,
-        masks={
-            "ground truth": {"mask_data": true_mask, "class_labels": labels}
-        },
+        masks={"ground truth": {"mask_data": true_mask, "class_labels": labels}},
     )

@@ -3,11 +3,11 @@ from typing import Union
 import lightning as pl
 import numpy as np
 import torch
-import wandb
 from omegaconf import DictConfig, ListConfig
 from torch import nn
 from torchvision.transforms import functional as F
 
+import wandb
 from src.utils.utils import load_obj
 
 # Differences from original UNET:
@@ -33,38 +33,26 @@ class UNET(nn.Module):
         self.layers = layers
 
         self.double_conv_downs = nn.ModuleList(
-            [
-                self.__double_conv(layer, layer_n)
-                for layer, layer_n in zip(self.layers[:-1], self.layers[1:])
-            ]
+            [self.__double_conv(layer, layer_n) for layer, layer_n in zip(self.layers[:-1], self.layers[1:])]
         )
 
         self.up_trans = nn.ModuleList(
             [
                 nn.ConvTranspose2d(layer, layer_n, kernel_size=2, stride=2)
-                for layer, layer_n in zip(
-                    self.layers[::-1][:-2], self.layers[::-1][1:-1]
-                )
+                for layer, layer_n in zip(self.layers[::-1][:-2], self.layers[::-1][1:-1])
             ]
         )
 
         self.double_conv_ups = nn.ModuleList(
-            [
-                self.__double_conv(layer, layer // 2)
-                for layer in self.layers[::-1][:-2]
-            ]
+            [self.__double_conv(layer, layer // 2) for layer in self.layers[::-1][:-2]]
         )
 
         self.max_pool_2x2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.final_conv = nn.Conv2d(
-            self.min_layer_size, classes, kernel_size=1
-        )
+        self.final_conv = nn.Conv2d(self.min_layer_size, classes, kernel_size=1)
 
     def __double_conv(self, in_channels, out_channels):
         conv = nn.Sequential(
-            nn.Conv2d(
-                in_channels, out_channels, kernel_size=3, padding=1, bias=False
-            ),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
@@ -86,9 +74,7 @@ class UNET(nn.Module):
         concat_layers = concat_layers[::-1]
 
         # up layers
-        for up_trans, double_conv_up, concat_layer in zip(
-            self.up_trans, self.double_conv_ups, concat_layers
-        ):
+        for up_trans, double_conv_up, concat_layer in zip(self.up_trans, self.double_conv_ups, concat_layers):
             x = up_trans(x)
             if x.shape != concat_layer.shape:
                 x = F.resize(x, concat_layer.shape[2:])
@@ -118,15 +104,11 @@ class UNETModule(pl.LightningModule):
         return model
 
     def get_criterion(self):
-        self.loss_fn = load_obj(self.cfg.criterion.class_name)(
-            **self.cfg.criterion.params
-        )
+        self.loss_fn = load_obj(self.cfg.criterion.class_name)(**self.cfg.criterion.params)
 
     def configure_optimizers(self):
         optimizer = load_obj(self.cfg.optimizer.class_name)
-        optimizer = optimizer(
-            self.model.parameters(), **self.cfg.optimizer.params
-        )
+        optimizer = optimizer(self.model.parameters(), **self.cfg.optimizer.params)
 
         lr_scheduler = load_obj(self.cfg.scheduler.class_name)
         lr_scheduler = lr_scheduler(optimizer, **self.cfg.scheduler.params)
@@ -141,15 +123,11 @@ class UNETModule(pl.LightningModule):
 
     def configure_metrics(self):
         self.global_metrics = {
-            metrics["class_name"].split(".")[-1]: load_obj(
-                metrics["class_name"]
-            )(**metrics["params"])
+            metrics["class_name"].split(".")[-1]: load_obj(metrics["class_name"])(**metrics["params"])
             for metrics in self.cfg.metrics["global"]
         }
         self.label_metrics = {
-            metrics["class_name"].split(".")[-1]: load_obj(
-                metrics["class_name"]
-            )(**metrics["params"])
+            metrics["class_name"].split(".")[-1]: load_obj(metrics["class_name"])(**metrics["params"])
             for metrics in self.cfg.metrics.label
         }
 

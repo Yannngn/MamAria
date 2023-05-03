@@ -6,12 +6,8 @@ from utils.save_images import (
 )
 
 
-def log_predictions(
-    data, label, predictions, global_metrics, label_metrics, config, step
-):
-    dict_eval = check_accuracy(
-        predictions, label, global_metrics, label_metrics
-    )
+def log_predictions(data, label, predictions, global_metrics, label_metrics, config, step):
+    dict_eval = check_accuracy(predictions, label, global_metrics, label_metrics)
 
     save_predictions_as_imgs(data, label, predictions, config, step, dict_eval)
 
