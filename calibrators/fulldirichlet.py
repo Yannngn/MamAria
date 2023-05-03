@@ -1,9 +1,9 @@
 import numpy as np
-from multinomial import MultinomialRegression
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.metrics import log_loss
 
-from utils import clip_for_log
+from calibrators.multinomial import MultinomialRegression
+from calibrators.utils import clip_for_log
 
 
 class FullDirichletCalibrator(BaseEstimator, RegressorMixin):

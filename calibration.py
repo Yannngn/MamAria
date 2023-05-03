@@ -1,22 +1,24 @@
 import logging
-from typing import Tuple
+import os
+from typing import List, Tuple
 
 import matplotlib as mpl
+import numpy as np
 import torch
+from memory_profiler import profile
 from munch import munchify
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from torch import nn
+from torch.nn import functional as F
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from yaml import safe_load
 
-from models.unet import UNET
-from utils.calibrate import (
-    calibration_metrics,
-    fit_calibrator,
-    flatten_logits,
-    plot_results,
-    softmax_tensor_to_numpy,
+from calibrators.minibatch_fulldirichlet import (
+    MiniBatchFullDirichletCalibrator,
 )
-from utils.fulldirichlet import FullDirichletCalibrator
-from utils.fulldirichletcustom import FullDirichletCalibratorCustom
+from calibrators.utils import calibration_metrics, plot_results
+from models.unet import UNET
 from utils.utils import (
     get_device,
     get_loaders,
@@ -27,50 +29,110 @@ from utils.utils import (
 )
 
 
-def main(config):
+def load_torch_model(config):
     device = get_device(config)
-    assert config.load_model.path, print("checkpoint path was not provided")
+    assert os.path.isfile(config.load.path), print(
+        "checkpoint path was not provided"
+    )
 
+    model = UNET(config).to(device)
+    model = nn.DataParallel(model)
+
+    load_checkpoint(torch.load(config.load.path), model, None, None)
+
+    return model
+
+
+def load_data(config):
     _, val_transforms, calib_transforms = get_transforms(config)
     _, val_loader, calib_loader = get_loaders(
         config, None, val_transforms, calib_transforms
     )
 
-    model = UNET(config).to(device)
-    model = torch.nn.DataParallel(model)
+    return val_loader, calib_loader
 
-    load_checkpoint(torch.load(config.load.path), model, None, None)
 
-    loss_fn = get_loss_function(config)
-
-    logits, labels = predict(model, val_loader, loss_fn, device)
-
-    calibration_metrics(logits, labels)
-
+def main(config):
+    prediction_path = "data/predictions/"
     odir = False
-    lambda_ = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
-    mu_ = lambda_ if odir else None
+    lambda_ = [1e-3]  # [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+    mu_ = lambda_ if odir else [None]
 
-    if config.calibration.custom:
-        calibrator = FullDirichletCalibratorCustom(
-            reg_lambda=lambda_, reg_mu=mu_
-        )
+    model = load_torch_model(config)
+    loss_fn = get_loss_function(config)
+    val_loader, calib_loader = load_data(config)
+
+    # scores, labels = predict(model, val_loader, loss_fn)
+    # np.save(os.path.join(prediction_path, "4_img_scores.npy"),
+    #         scores[: 4 * 360 * 600])
+    # np.save(os.path.join(prediction_path, "4_img_labels.npy"),
+    #         labels[: 4 * 360 * 600])
+
+    if os.path.isfile(os.path.join(prediction_path, "val_scores.npy")):
+        scores = np.load(os.path.join(prediction_path, "val_scores.npy"))
+        labels = np.load(os.path.join(prediction_path, "val_labels.npy"))
     else:
-        calibrator = FullDirichletCalibrator(reg_lambda=lambda_, reg_mu=mu_)
+        scores, labels = predict(model, val_loader, loss_fn)
+        np.save(os.path.join(prediction_path, "val_scores.npy"), scores)
+        np.save(os.path.join(prediction_path, "val_labels.npy"), labels)
 
-    gscv = fit_calibrator(calibrator, logits, labels, lambda_, mu_)
+    calibrator = calibrate(scores, labels, lambda_, mu_)
+    weights = calibrator.weights
+    logging.info(weights)
 
-    logits, labels = predict(model, calib_loader, loss_fn, device)
-    logits = flatten_logits(logits)
-    scores = softmax_tensor_to_numpy(logits)
-    labels = labels.flatten().cpu().numpy()
+    if os.path.isfile(os.path.join(prediction_path, "calib_scores.npy")):
+        scores = np.load(os.path.join(prediction_path, "calib_scores.npy"))
+        labels = np.load(os.path.join(prediction_path, "calib_labels.npy"))
+    else:
+        scores, labels = predict(model, calib_loader, loss_fn)
+        np.save(os.path.join(prediction_path, "calib_scores.npy"), scores)
+        np.save(os.path.join(prediction_path, "calib_labels.npy"), labels)
 
-    plot_results(gscv, scores, labels, NOW, odir)
+    plot_results(calibrator, scores, labels, NOW, odir)
+
+
+@profile
+def calibrate(
+    scores: np.ndarray,
+    labels: np.ndarray,
+    lambda_: List[float],
+    mu_: List[float | None],
+):
+    calibrator = MiniBatchFullDirichletCalibrator(
+        reg_lambda=lambda_, reg_mu=mu_, max_iter=1
+    )
+
+    skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=0)
+
+    gscv = GridSearchCV(
+        calibrator,
+        cv=skf,
+        scoring="neg_log_loss",
+        param_grid={"reg_lambda": lambda_, "reg_mu": mu_},
+        n_jobs=1,
+        verbose=1,
+    )
+
+    logging.info(f"logits.shape: {scores.shape}, labels.shape: {labels.shape}")
+
+    gscv.fit(
+        scores,
+        labels,
+    )
+
+    logging.info("Grid of parameters cross-validated")
+    logging.info(gscv.param_grid)
+    logging.info(f"Best parameters: {gscv.best_params_}")
+
+    return gscv.best_estimator_
 
 
 def predict(
-    model, loader, loss_fn, device
+    model: nn.Module,
+    loader: DataLoader,
+    loss_fn: nn.Module,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
+    device = get_device(config)
     loop = tqdm(loader)
     logits_list, labels_list = [], []
     correct, total = 0, 0
@@ -92,7 +154,7 @@ def predict(
         labels_list.append(labels)
 
         # convert to probabilities
-        output_probs = torch.nn.functional.softmax(logits, dim=1)
+        output_probs = F.softmax(logits, dim=1)
 
         # pick max args
         _, predicted = torch.max(output_probs, 1)
@@ -104,15 +166,29 @@ def predict(
     loop.close()
 
     pixels = config.image.image_height * config.image.image_width * total
+
     logging.info(
         f"""Accuracy of the network on the {pixels}
         test pixels: {100 * correct / pixels:.3f} %"""
     )
 
-    return torch.cat(logits_list), torch.cat(labels_list)
+    logits, labels = torch.cat(logits_list), torch.cat(labels_list)
+    calibration_metrics(logits, labels)
+
+    scores = F.softmax(logits, dim=1)
+    scores = scores.permute(0, 2, 3, 1).flatten(end_dim=2).cpu().numpy()
+    labels = labels.flatten().cpu().numpy()
+
+    return scores, labels
 
 
 if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.INFO)
+    # warnings.filterwarnings("ignore")
+
+    torch.cuda.empty_cache()
+    torch.autograd.set_detect_anomaly(True)
+
     NOW = get_time()
 
     mpl.use("Agg")

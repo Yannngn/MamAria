@@ -1,3 +1,7 @@
+wandb:
+  project_name: "test"
+  project_team: "tail-upenn"
+  online: false
 general:
   logging_file: 'logging_treino.log'
   log_dir: 'logs/'
@@ -60,8 +64,8 @@ data:
   val_mask_dir: "D:/MamAria/data/val/mask/"
   test_img_dir: "D:/MamAria/data/test/phantom/"
   test_mask_dir: "D:/MamAria/data/test/mask/"
-  calib_image_dir: "D:/MamAria/data/calib/phantom/"
-  calib_mask_dir: "D:/MamAria/data/calib/phantom/"
+  calib_image_dir: "D:/MamAria/data/val/phantom/"
+  calib_mask_dir: "D:/MamAria/data/val/mask/"
 training:
   class_name: UNETModule
   params:

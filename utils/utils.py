@@ -4,17 +4,17 @@ from datetime import datetime
 
 import albumentations as A
 import cv2
-import jax.numpy as jax_np
 import numpy as np
 import torch
 import torchmetrics
-import wandb
 from albumentations.augmentations.geometric import resize
 from albumentations.pytorch import ToTensorV2
 from torch import nn, optim
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torchgeometry import losses
+
+import wandb
 
 
 def get_time():
@@ -251,25 +251,37 @@ def get_metrics(config):
 
     global_metrics = [
         torchmetrics.Accuracy(
-            num_classes=num_classes, mdmc_average="global"
+            task="multiclass", num_classes=num_classes, mdmc_average="global"
         ).to(device),
         torchmetrics.Accuracy(
-            num_classes=num_classes, average=average, mdmc_average="global"
+            task="multiclass",
+            num_classes=num_classes,
+            average=average,
         ).to(device),
         torchmetrics.F1Score(
-            num_classes=num_classes, average=average, mdmc_average="global"
+            task="multiclass",
+            num_classes=num_classes,
+            average=average,
         ).to(device),
         torchmetrics.Precision(
-            num_classes=num_classes, average=average, mdmc_average="global"
+            task="multiclass",
+            num_classes=num_classes,
+            average=average,
         ).to(device),
         torchmetrics.Recall(
-            num_classes=num_classes, average=average, mdmc_average="global"
+            task="multiclass",
+            num_classes=num_classes,
+            average=average,
         ).to(device),
         torchmetrics.Specificity(
-            num_classes=num_classes, average=average, mdmc_average="global"
+            task="multiclass",
+            num_classes=num_classes,
+            average=average,
         ).to(device),
         torchmetrics.JaccardIndex(
-            num_classes=num_classes, average=average, mdmc_average="global"
+            task="multiclass",
+            num_classes=num_classes,
+            average=average,
         ).to(device),
     ]
 
@@ -285,22 +297,22 @@ def get_metrics(config):
 
     label_metrics = [
         torchmetrics.Accuracy(
-            num_classes=num_classes, average=None, mdmc_average="global"
+            task="multiclass", num_classes=num_classes, average=None
         ).to(device),
         torchmetrics.F1Score(
-            num_classes=num_classes, average=None, mdmc_average="global"
+            task="multiclass", num_classes=num_classes, average=None
         ).to(device),
         torchmetrics.Precision(
-            num_classes=num_classes, average=None, mdmc_average="global"
+            task="multiclass", num_classes=num_classes, average=None
         ).to(device),
         torchmetrics.Recall(
-            num_classes=num_classes, average=None, mdmc_average="global"
+            task="multiclass", num_classes=num_classes, average=None
         ).to(device),
         torchmetrics.Specificity(
-            num_classes=num_classes, average=None, mdmc_average="global"
+            task="multiclass", num_classes=num_classes, average=None
         ).to(device),
         torchmetrics.JaccardIndex(
-            num_classes=num_classes, average=None, mdmc_average="global"
+            task="multiclass", num_classes=num_classes, average=None
         ).to(device),
     ]
 
@@ -392,18 +404,3 @@ def wandb_mask(data, true_mask, labels, prediction=None):
             "ground truth": {"mask_data": true_mask, "class_labels": labels}
         },
     )
-
-
-def clip_for_log(X):
-    eps = np.finfo(X.dtype).tiny
-    return np.clip(X, eps, 1 - eps)
-
-
-def clip(X):
-    eps = np.finfo(X.dtype).tiny
-    return np.clip(X, eps, 1 - eps)
-
-
-def clip_jax(X):
-    eps = jax_np.finfo(X.dtype).eps
-    return jax_np.clip(X, eps, 1 - eps)

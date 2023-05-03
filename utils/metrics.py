@@ -78,8 +78,8 @@ class CELoss(object):
         # print("pred", self.predictions.shape)
         self.confidences, self.predictions = (
             self.confidences.detach().numpy(),
+            self.predictions.detach().numpy(),
         )
-        self.predictions.detach().numpy()
         self.accuracies = np.equal(self.predictions, labels)
 
     def binary_matrices(self):

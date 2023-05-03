@@ -6,3 +6,5 @@ plots/
 wandb/
 checkpoints/
 wandb_authorize.py
+data/
+checkpoints/

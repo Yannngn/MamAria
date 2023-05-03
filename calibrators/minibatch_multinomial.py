@@ -1,10 +1,11 @@
+# flake8: noqa
 from __future__ import division
 
 import logging
 
 import jax
-import jax.numpy as np
-import numpy as raw_np
+import jax.numpy as jnp
+import numpy as np
 import scipy
 import scipy.linalg
 import scipy.optimize
@@ -12,12 +13,15 @@ from jax.config import config
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import label_binarize
 
-from utils import clip_jax
-
 config.update("jax_enable_x64", True)
 
 
-class MultinomialRegression(BaseEstimator, RegressorMixin):
+def clip_jax(X):
+    eps = jnp.finfo(X.dtype).eps
+    return jnp.clip(X, eps, 1 - eps)
+
+
+class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
     def __init__(
         self,
         weights_0=None,
@@ -52,10 +56,32 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
         self.ref_row = ref_row
         self.optimizer = optimizer
 
-    def __setup(self):
+    def __setup(self, y):
+        first_fit = not hasattr(self, "classes")
+        # não ter o attr classes
+        if not first_fit:
+            self.weights_ = self.weights_0
+            self.weights_0_ = self.weights_0
+            return
+
         self.classes = None
         self.weights_ = self.weights_0
         self.weights_0_ = self.weights_0
+
+        self.classes = np.unique(y)
+
+        self.num_classes = len(self.classes)
+
+        if self.reg_norm:
+            if self.reg_mu is None:
+                self.reg_lambda = self.reg_lambda / (
+                    self.num_classes * (self.num_classes + 1)
+                )
+            else:
+                self.reg_lambda = self.reg_lambda / (
+                    self.num_classes * (self.num_classes - 1)
+                )
+                self.reg_mu = self.reg_mu / self.num_classes
 
     @property
     def coef_(self):
@@ -66,20 +92,91 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
         return self.weights_[:, -1]
 
     def predict_proba(self, S):
-        S_ = np.hstack((S, np.ones((len(S), 1))))
+        S_ = jnp.hstack((S, jnp.ones((len(S), 1))))
 
-        return np.asarray(_calculate_outputs(self.weights_, S_))
+        return jnp.asarray(_calculate_outputs(self.weights_, S_))
 
     # FIXME Should we change predict for the argmax?
     def predict(self, S):
-        return np.asarray(self.predict_proba(S))
+        return jnp.asarray(self.predict_proba(S))
+
+    def partial_fit(self, X, y, *args, **kwargs):
+        self.__setup(y)
+
+        X_ = jnp.hstack((X, jnp.ones((len(X), 1))))
+
+        target = label_binarize(y, classes=self.classes)
+
+        if self.num_classes == 2:
+            target = jnp.hstack([1 - target, target])
+
+        n, m = X_.shape
+
+        XXT = (X_.repeat(m, axis=1) * jnp.hstack([X_] * m)).reshape((n, m, m))
+
+        logging.debug(f"method = {self.method}")
+
+        self.weights_0_ = self._get_initial_weights(self.initializer)
+
+        if self.optimizer == "newton" or (
+            self.optimizer == "auto" and self.num_classes <= 36
+        ):
+            weights = _newton_update(
+                self.weights_0_,
+                X_,
+                XXT,
+                target,
+                self.num_classes,
+                self.method,
+                reg_lambda=self.reg_lambda,
+                reg_mu=self.reg_mu,
+                ref_row=self.ref_row,
+                initializer=self.initializer,
+                reg_format=self.reg_format,
+            )
+
+        elif self.optimizer == "fmin_l_bfgs_b" or (
+            self.optimizer == "auto" and self.num_classes > 36
+        ):
+
+            def _gradient_np(*args, **kwargs):
+                return np.array(_gradient(*args, **kwargs))
+
+            res = scipy.optimize.fmin_l_bfgs_b(
+                func=_objective,
+                fprime=_gradient_np,
+                x0=self.weights_0_,
+                args=(
+                    X_,
+                    XXT,
+                    target,
+                    self.num_classes,
+                    self.method,
+                    self.reg_lambda,
+                    self.reg_mu,
+                    self.ref_row,
+                    self.initializer,
+                    self.reg_format,
+                ),
+                maxls=128,
+                factr=1.0,
+            )
+            weights = res[0]
+        else:
+            raise (ValueError("Unknown optimizer: {}".format(self.optimizer)))
+
+        self.weights_ = _get_weights(
+            weights, self.num_classes, self.ref_row, self.method
+        )
+
+        return self
 
     def fit(self, X, y, *args, **kwargs):
         self.__setup()
 
-        X_ = np.hstack((X, np.ones((len(X), 1))))
+        X_ = jnp.hstack((X, jnp.ones((len(X), 1))))
 
-        self.classes = raw_np.unique(y)
+        self.classes = np.unique(y)
 
         k = len(self.classes)
 
@@ -90,14 +187,14 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
                 self.reg_lambda = self.reg_lambda / (k * (k - 1))
                 self.reg_mu = self.reg_mu / k
 
-        target = label_binarize(y, self.classes)
+        target = label_binarize(y, classes=self.classes)
 
         if k == 2:
-            target = np.hstack([1 - target, target])
+            target = jnp.hstack([1 - target, target])
 
         n, m = X_.shape
 
-        XXT = (X_.repeat(m, axis=1) * np.hstack([X_] * m)).reshape((n, m, m))
+        XXT = (X_.repeat(m, axis=1) * jnp.hstack([X_] * m)).reshape((n, m, m))
 
         logging.debug(self.method)
 
@@ -122,9 +219,9 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
         elif self.optimizer == "fmin_l_bfgs_b" or (
             self.optimizer == "auto" and k > 36
         ):
-
-            def _gradient_np(*args, **kwargs):
-                raw_np.array(_gradient(*args, **kwargs))
+            _gradient_np = lambda *args, **kwargs: np.array(
+                _gradient(*args, **kwargs)
+            )
 
             res = scipy.optimize.fmin_l_bfgs_b(
                 func=_objective,
@@ -156,7 +253,6 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
     def _get_initial_weights(self, ref_row, initializer="identity"):
         """Returns an array containing only the weights of the full weight
         matrix.
-
         """
 
         if initializer not in ["identity", None]:
@@ -169,37 +265,49 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
                 weights_0 = _get_identity_weights(k, ref_row, self.method)
             else:
                 if self.method == "Full":
-                    weights_0 = np.zeros(k * (k + 1))
+                    weights_0 = jnp.zeros(k * (k + 1))
                 elif self.method == "Diag":
-                    weights_0 = np.zeros(2 * k)
+                    weights_0 = jnp.zeros(2 * k)
                 elif self.method == "FixDiag":
-                    weights_0 = np.zeros(1)
+                    weights_0 = jnp.zeros(1)
         else:
             weights_0 = self.weights_0_
 
         return weights_0
 
 
-def _objective(params, *args):
-    (X, _, y, k, method, reg_lambda, reg_mu, ref_row, _, reg_format) = args
+def _objective(
+    params,
+    X,
+    XXT,
+    y,
+    k,
+    method,
+    reg_lambda,
+    reg_mu,
+    ref_row,
+    initializer,
+    reg_format,
+):
     weights = _get_weights(params, k, ref_row, method)
+
     outputs = clip_jax(_calculate_outputs(weights, X))
-    loss = np.mean(-np.log(np.sum(y * outputs, axis=1)))
+    loss = jnp.mean(-jnp.log(jnp.sum(y * outputs, axis=1)))
 
     if reg_mu is None:
         if reg_format == "identity":
-            reg = np.hstack([np.eye(k), np.zeros((k, 1))])
+            reg = jnp.hstack([jnp.eye(k), jnp.zeros((k, 1))])
         else:
-            reg = np.zeros((k, k + 1))
-        loss = loss + reg_lambda * np.sum((weights - reg) ** 2)
+            reg = jnp.zeros((k, k + 1))
+        loss = loss + reg_lambda * jnp.sum((weights - reg) ** 2)
     else:
-        weights_hat = weights - np.hstack(
-            [weights[:, :-1] * np.eye(k), np.zeros((k, 1))]
+        weights_hat = weights - jnp.hstack(
+            [weights[:, :-1] * jnp.eye(k), jnp.zeros((k, 1))]
         )
         loss = (
             loss
-            + reg_lambda * np.sum(weights_hat[:, :-1] ** 2)
-            + reg_mu * np.sum(weights_hat[:, -1] ** 2)
+            + reg_lambda * jnp.sum(weights_hat[:, :-1] ** 2)
+            + reg_mu * jnp.sum(weights_hat[:, -1] ** 2)
         )
 
     return loss
@@ -215,61 +323,61 @@ def _get_weights(params, k, ref_row, method):
     """Reshapes the given params (weights) into the full matrix including 0"""
 
     if method in ["Full", None]:
-        raw_weights = params.reshape(-1, k + 1)
-        # weights = np.zeros([k, k+1])
-        # weights[:-1, :] = params.reshape(-1, k + 1)
+        raw_weights = jnp.reshape(params, (-1, k + 1))
 
     elif method == "Diag":
-        raw_weights = np.hstack(
-            [np.diag(params[:k]), params[k:].reshape(-1, 1)]
+        raw_weights = jnp.hstack(
+            [jnp.diag(params[:k]), jnp.reshape(params[k:], (-1, 1))]
         )
-        # weights[:, :-1][np.diag_indices(k)] = params[:]
 
     elif method == "FixDiag":
-        raw_weights = np.hstack([np.eye(k) * params[0], np.zeros((k, 1))])
-        # weights[np.dgag_indices(k - 1)] = params[0]
-        # weights[np.diag_indices(k)] = params[0]
+        raw_weights = jnp.hstack([jnp.eye(k) * params[0], jnp.zeros((k, 1))])
+
     else:
-        raise (ValueError("Unknown calibration method {}".format(method)))
+        raise ValueError(f"Unknown calibration method {method}")
 
     if ref_row:
-        weights = raw_weights - np.repeat(
-            raw_weights[-1, :].reshape(1, -1), k, axis=0
+        return raw_weights - jnp.repeat(
+            jnp.reshape(raw_weights[-1, :], (1, -1)), k, axis=0
         )
-    else:
-        weights = raw_weights
 
-    return weights
+    return raw_weights
 
 
 def _get_identity_weights(n_classes, ref_row, method):
-    raw_weights = None
-
-    if (method is None) or (method == "Full"):
-        raw_weights = np.zeros((n_classes, n_classes + 1)) + np.hstack(
-            [np.eye(n_classes), np.zeros((n_classes, 1))]
+    if method in ["Full", None]:
+        raw_weights = jnp.hstack(
+            [jnp.eye(n_classes), jnp.zeros([n_classes, 1])]
         )
-        raw_weights = raw_weights.ravel()
 
     elif method == "Diag":
-        raw_weights = np.hstack([np.ones(n_classes), np.zeros(n_classes)])
+        raw_weights = jnp.hstack([jnp.ones(n_classes), jnp.zeros(n_classes)])
 
     elif method == "FixDiag":
-        raw_weights = np.ones(1)
+        raw_weights = jnp.ones(1)
 
-    return raw_weights.ravel()
+    else:
+        raise ValueError(f"Unknown calibration method {method}")
+
+    # será q é necessário?
+    if ref_row:
+        raw_weights = raw_weights - jnp.repeat(
+            jnp.reshape(raw_weights[-1, :], [1, -1]), n_classes, axis=0
+        )
+
+    return jnp.ravel(raw_weights)
 
 
 def _calculate_outputs(weights, X):
-    mul = np.dot(X, weights.transpose())
-    return _softmax(mul)
+    return _softmax(jnp.dot(X, weights.transpose()))
 
 
 def _softmax(X):
     """Compute the softmax of matrix X in a numerically stable way."""
-    shiftx = X - np.max(X, axis=1).reshape(-1, 1)
-    exps = np.exp(shiftx)
-    return exps / np.sum(exps, axis=1).reshape(-1, 1)
+    X = X - jnp.max(X, axis=1, keepdims=True)
+    exps = jnp.exp(X)
+
+    return exps / jnp.sum(exps, axis=1, keepdims=True)
 
 
 def _newton_update(
@@ -310,7 +418,7 @@ def _newton_update(
 
     # TODO move this to the initialization
     if method_ is None:
-        weights = np.zeros_like(weights)
+        weights = jnp.zeros_like(weights)
 
     for i in range(0, maxiter):
         gradient = _gradient(
@@ -327,7 +435,7 @@ def _newton_update(
             reg_format,
         )
 
-        if np.abs(gradient).sum() < gtol:
+        if jnp.abs(gradient).sum() < gtol:
             break
 
         # FIXME hessian is ocasionally NaN
@@ -349,19 +457,19 @@ def _newton_update(
             updates = gradient / hessian
         else:
             try:
-                inverse = scipy.linalg.pinv2(hessian)
-                updates = np.matmul(inverse, gradient)
-            except (raw_np.linalg.LinAlgError, ValueError) as err:
+                inverse = scipy.linalg.pinv(hessian)
+                updates = jnp.matmul(inverse, gradient)
+            except (np.linalg.LinAlgError, ValueError) as err:
                 logging.error(err)
                 updates = gradient
 
-        for step_size in np.hstack(
-            (np.linspace(1, 0.1, 10), np.logspace(-2, -32, 31))
+        for step_size in jnp.hstack(
+            (jnp.linspace(1, 0.1, 10), jnp.logspace(-2, -32, 31))
         ):
             tmp_w = weights - (updates * step_size).ravel()
 
-            if np.any(np.isnan(tmp_w)):
-                logging.debug("{}: There are NaNs in tmp_w".format(method_))
+            if jnp.any(jnp.isnan(tmp_w)):
+                logging.error("{}: There are NaNs in tmp_w".format(method_))
 
             L = _objective(
                 tmp_w,
@@ -383,24 +491,22 @@ def _newton_update(
         L_list.append(float(L))
 
         logging.debug(
-            """{}: after {} iterations log-loss = {:.7e},
-            sum_grad = {:.7e}""".format(
-                method_, i, L, np.abs(gradient).sum()
+            "{}: after {} iterations log-loss = {:.7e}, sum_grad = {:.7e}".format(
+                method_, i, L, jnp.abs(gradient).sum()
             )
         )
 
-        if np.isnan(L):
+        if jnp.isnan(L):
             logging.error("{}: log-loss is NaN".format(method_))
             break
 
         if i >= 5:
-            if (float(raw_np.min(raw_np.diff(L_list[-5:]))) > -ftol) & (
-                float(raw_np.sum(raw_np.diff(L_list[-5:])) > 0) == 0
+            if (float(np.min(np.diff(L_list[-5:]))) > -ftol) & (
+                float(np.sum(np.diff(L_list[-5:])) > 0) == 0
             ):
                 weights = tmp_w.copy()
                 logging.debug(
-                    """{}: Terminate as there is not
-                    enough changes on loss.""".format(
+                    "{}: Terminate as there is not enough changes on loss.".format(
                         method_
                     )
                 )
@@ -409,7 +515,7 @@ def _newton_update(
         if (L_list[-1] - L_list[-2]) > 0:
             logging.debug(
                 "{}: Terminate as the loss increased {}.".format(
-                    method_, np.diff(L_list[-2:])
+                    method_, jnp.diff(L_list[-2:])
                 )
             )
             break
@@ -431,9 +537,8 @@ def _newton_update(
     )
 
     logging.debug(
-        """{}: after {} iterations final log-loss = {:.7e},
-        sum_grad = {:.7e}""".format(
-            method_, i, L, np.abs(gradient).sum()
+        "{}: after {} iterations final log-loss = {:.7e}, sum_grad = {:.7e}".format(
+            method_, i, L, jnp.abs(gradient).sum()
         )
     )
 

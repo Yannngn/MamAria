@@ -5,7 +5,7 @@ import torch
 import wandb
 from torchvision.utils import save_image
 
-from utils.calibrate import flatten_logits, softmax_tensor_to_numpy
+from calibrators.utils import flatten_logits, softmax_tensor_to_numpy
 from utils.post_processing import label_to_pixel
 
 # , get_confidence_of_prediction, fit_ellipses_on_image, get_confidence_of_prediction # noqa: W

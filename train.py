@@ -1,9 +1,10 @@
 import logging
+import os
 
 import torch
-import wandb
 from tqdm import tqdm
 
+import wandb
 from utils.utils import get_device, save_checkpoint
 from validate import early_stop_validation, validate_fn
 
@@ -56,6 +57,11 @@ def train_loop(
     label_metrics,
     config,
 ):
+    checkpoint_dir = "data/checkpoints/"
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    name = f"{config.project.time}_best_checkpoint.pth.tar"
+    best_checkpoint_path = os.path.join(checkpoint_dir, name)
+
     for epoch in range(config.project.epoch, config.project.num_epochs):
         logging.info(f"Starting epoch {epoch}...")
 
@@ -89,18 +95,15 @@ def train_loop(
             "scheduler": scheduler.state_dict(),
         }
 
-        save_checkpoint(checkpoint)
-
-        name = "{config.project.time}_best_checkpoint.pth.tar"
-
         stopping(
             val_loss,
             checkpoint,
-            checkpoint_path="data/checkpoints/" + name,
+            checkpoint_path=best_checkpoint_path,
             epoch=epoch,
         )
 
         if not stopping.early_stop:
+            save_checkpoint(checkpoint)
             continue
 
         early_stop_validation(

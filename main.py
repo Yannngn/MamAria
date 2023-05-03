@@ -2,10 +2,10 @@ import logging
 import os
 
 import torch
-import wandb
 from munch import munchify, unmunchify
 from yaml import safe_load
 
+import wandb
 from models.unet import UNET
 from train import train_loop
 from utils.early_stopping import EarlyStopping
@@ -87,7 +87,7 @@ def main(config):
 
 
 if __name__ == "__main__":
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
     # warnings.filterwarnings("ignore")
 
     torch.cuda.empty_cache()
