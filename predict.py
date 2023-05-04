@@ -1,19 +1,27 @@
+import logging
 import os
-import torch
-import torch.nn as nn
-import wandb
 import warnings
-
 from datetime import datetime
+
+import torch
 from munch import munchify, unmunchify
 from tqdm import tqdm
 from yaml import safe_load
 
+import wandb
 from loggers.logs import log_predictions
 from models.unet import UNET
-from utils.utils import get_loaders, load_checkpoint, get_device, get_metrics, get_transforms, get_loss_function
+from utils.utils import (
+    get_device,
+    get_loaders,
+    get_loss_function,
+    get_metrics,
+    get_transforms,
+    load_checkpoint,
+)
 
 warnings.filterwarnings("ignore")
+
 
 def predict_fn(test_loader, model, loss_fn, global_metrics, label_metrics, config):
     device = get_device(config)
@@ -31,55 +39,67 @@ def predict_fn(test_loader, model, loss_fn, global_metrics, label_metrics, confi
 
         # update tqdm loop
         loop.set_postfix(loss=loss.item())
-        
-        log_predictions(data, targets, predictions, global_metrics, label_metrics, config, idx)
+
+        log_predictions(
+            data,
+            targets,
+            predictions,
+            global_metrics,
+            label_metrics,
+            config,
+            idx,
+        )
 
     return loss.item()
 
+
 def main(config):
     device = get_device(config)
-   # logging.info('predict')
+    logging.info("predict")
     wandb.init(
-        project = config.wandb.project_name,
-        entity = config.wandb.project_team,
-        config = unmunchify(config.hyperparameters))
-    
-    #logging.info('wandb init')
+        project=config.wandb.project_name,
+        entity=config.wandb.project_team,
+        config=unmunchify(config.hyperparameters),
+    )
+
     config.hyperparameters = munchify(wandb.config)
 
-    _, _, test_transforms = get_transforms(config)
-    global_metrics, label_metrics = get_metrics(config)
-    _, _, test_loader = get_loaders(config, None, None, test_transforms)
+    _, _, test_loader = get_loaders(config, *get_transforms(config))
 
-    model = UNET(config)
-    
+    model = UNET(config).to(device)
+    model = torch.nn.DataParallel(model)
+
+    load_checkpoint(torch.load(config.load.path), model, optimizer=None, scheduler=None)
+
     loss_fn = get_loss_function(config)
 
-    load_checkpoint(torch.load("data/checkpoints/20220619_061736_best_checkpoint.pth.tar", map_location=torch.device('cpu')), model, optimizer=None, scheduler=None)
+    global_metrics, label_metrics = get_metrics(config)
 
-    model.to(device)
-    model = nn.DataParallel(model)
-
-#load_checkpoint(checkpoint, model, optimizer, scheduler)
     predict_fn(
         test_loader,
         model,
         loss_fn,
-        global_metrics, 
+        global_metrics,
         label_metrics,
         config,
     )
-    
-    wandb.finish()  
+
+    wandb.finish()
+
 
 if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.INFO)
+    warnings.filterwarnings("ignore")
+
     torch.cuda.empty_cache()
     torch.autograd.set_detect_anomaly(True)
 
-    with open('config_prediction.yaml') as f:
-        config = munchify(safe_load(f))  
+    # CHECKPOINT = "data/checkpoints/20220619_061736_best_checkpoint.pth.tar"
 
-    os.environ['WANDB_MODE'] = 'online' if config.wandb.online else 'offline'
-    config.time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    with open("config_prediction.yaml") as f:
+        config = munchify(safe_load(f))
+
+    os.environ["WANDB_MODE"] = "online" if config.wandb.online else "offline"
+    config.project.time = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     main(config)

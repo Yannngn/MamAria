@@ -1,57 +1,79 @@
 wandb:
-    project_name: "6_2022_calibration_test"
-    project_team: 'tail-upenn'
-    online: False
-
-time: 0
-epoch: 0 
+    project_name: test
+    project_team: tail-upenn
+    online: false
 
 project:
-    device: 'gpu'
+    device: gpu
     num_workers: 12
-    max_num_epochs: 250
+    num_epochs: 3
     pin_memory: True
-    load_model: False
-    validation_interval: 20
+    load_model: True
+    val_interval: 2
+    time: 0
+    epoch: 0 
 
 hyperparameters:
-    optimizer: None
-    loss_function: crossentropy
-    scheduler: None
-    weights: False
+    batch_size: 8
+    weights: True
     
-    batch_size: 16
-    multiplier: None
+    optimizer_fn: adam
+        
+    adam_learning_rate: .0003
+
+    sgd_learning_rate: .01
+    sgd_momentum: 0.9
+    sgd_weight_decay: .0001
+    sgd_nesterov: True
+
+    loss_fn: crossentropy   
+    multiplier: [1,1,1,1]
+            
+    tversky_alpha: .5
+    tversky_beta: .5
+
+    focal_alpha: 1
+    focal_gamma: 2
+    
+    scheduler_fn: warm
+    scheduler_patience: 5
+    
+    earlystopping: True
+    earlystop_patience: 10
     
 model:
     max_layer_size: 1024
     min_layer_size: 64
 
+calibration:
+    custom: True
+
 image:
-    image_height: 600 #512
-    image_width: 360 #301
+    phantom_format: dcm
+    mask_format: png
+    image_height: 600
+    image_width: 360
     image_channels: 1
     mask_channels: 1
     mask_labels: 4
-    phantom_format: 'dcm'
-    mask_format: 'png'
+
     labels: 
-        0: 'background' 
-        1: 'low_risk'
-        2: 'moderate_risk'
-        3: 'high_risk'
+        0: background 
+        1: low_risk
+        2: moderate_risk
+        3: high_risk
 
 load:
-    #path: E:\yann_folder\sweep_2022\PyTorch_Seg-master\data\checkpoints\20220619_013827_best_checkpoint.pth.tar
-                                                                        #20220618_172353_best_checkpoint.pth
-    path: data\checkpoints\20220618_160045_best_checkpoint.pth.tar
+    path: data/checkpoints/20230502_215115_best_checkpoint.pth.tar
 
 paths:
-    train_img_dir: "data/train/phantom/"
-    train_mask_dir: "data/train/mask/"
-    val_img_dir: "data/val/phantom/"
-    val_mask_dir: "data/val/mask/"
-    test_img_dir: "data/test/phantom/"
-    test_mask_dir: "data/test/mask/"
-    predictions_dir: "data/predictions/"
-    submissions_dir: "data/submissions/"
+    train_img_dir: data/train/phantom/
+    train_mask_dir: data/train/mask/
+    val_img_dir: data/val/phantom/
+    val_mask_dir: data/val/mask/
+    test_img_dir: data/test/phantom/
+    test_mask_dir: data/test/mask/
+    predictions_dir: data/predictions/
+    submissions_dir: data/submissions/
+    calibrations_dir: data/calibrations/
+    confidences_dir: data/confidences/

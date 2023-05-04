@@ -1,0 +1,132 @@
+wandb:
+  project_name: "test"
+  project_team: "tail-upenn"
+  online: false
+general:
+  logging_file: 'logging_treino.log'
+  log_dir: 'logs/'
+  checkpoint_dir: 'checkpoints/'
+  predictions_dir: "data/predictions/"
+  submissions_dir: "data/submissions/"
+  calibrations_dir: "data/calibrations/"
+  confidences_dir: "data/confidences/"
+trainer:
+  max_epochs: 200
+  check_val_every_n_epoch: 10
+  default_root_dir: ${general.checkpoint_dir}
+  fast_dev_run: false
+logger:
+- class_name: lightning.pytorch.loggers.WandB
+  params:
+    save_dir: ${general.log_dir}
+    project_name: 04_2023_lightning
+    online: true
+callbacks:
+- class_name: lightning.pytorch.callbacks.early_stopping.EarlyStopping
+  params:
+    monitor: ${training.params.metric}
+    patience: 10
+    mode: ${training.params.mode}
+- class_name: lightning.pytorch.callbacks.model_checkpoint.ModelCheckpoint
+  params:
+    monitor: ${training.params.metric}
+    save_top_k: 3
+    dirpath: ${general.checkpoint_dir}
+    mode: ${training.params.mode}
+- class_name: lightning.pytorch.callbacks.lr_monitor.LearningRateMonitor
+  params:
+    logging_interval: epoch
+- class_name: lightning.pytorch.callbacks.lr_finder.LearningRateFinder
+  params:
+    update_attr: true
+data:
+  class_name: PhantomDCMData
+  params:
+    num_workers: 12
+    batch_size: 4
+    pin_memory: true
+    drop_last: true
+  dataset:
+    class_name: PhantomDCMDataset
+    params:
+      image_size: 
+        - 2816
+        - 3584
+      labels: 4
+      label_map:
+        0: 'background' 
+        1: 'low_risk'
+        2: 'moderate_risk'
+        3: 'high_risk'
+  train_img_dir: "D:/MamAria/data/train/phantom/"
+  train_mask_dir: "D:/MamAria/data/train/mask/"
+  val_img_dir: "D:/MamAria/data/val/phantom/"
+  val_mask_dir: "D:/MamAria/data/val/mask/"
+  test_img_dir: "D:/MamAria/data/test/phantom/"
+  test_mask_dir: "D:/MamAria/data/test/mask/"
+  calib_image_dir: "D:/MamAria/data/val/phantom/"
+  calib_mask_dir: "D:/MamAria/data/val/mask/"
+training:
+  class_name: UNETModule
+  params:
+    lr: 0.001
+    metric: train_loss
+    seed: 1337
+    debug: false
+    mode: min
+optimizer:
+  class_name: torch.optim.AdamW
+  params:
+    lr: ${training.params.lr}
+    weight_decay: 0.001
+criterion:
+  class_name: torch.nn.CrossEntropyLoss
+  params: 
+    weights:
+    - 1
+    - 1
+    - 1
+    - 1
+scheduler:
+  class_name: torch.optim.lr_scheduler.ReduceLROnPlateau
+  step: epoch
+  monitor: ${training.params.metric}
+  params:
+    mode: ${training.params.mode}
+    factor: 0.1
+    patience: 5
+model:
+  class_name: UNET
+  params:
+    min_layer_size: 64
+    max_layer_size: 1024
+    in_channels: 1
+    labels: ${dataset.params.labels}
+transforms:
+  compose:
+    class_name: albumentations.Compose
+  preprocessing:
+    - class_name: albumentations.augmentations.crops.transforms.Crop
+      params:
+        x_min: 1016
+        y_min: 292
+        x_max: 2816
+        y_max: 3292
+    - class_name: albumentations.augmentations.geometric.resize.Resize
+      params:
+        height: height
+        width: width
+        p: 1.0
+        # interpolation: 
+        #   class_name: cv2.INTER_LANCZOS4
+  augs:
+    - class_name: albumentations.Flip
+      params:
+        p: 0.6
+    - class_name: albumentations.RandomBrightnessContrast
+      params:
+        p: 0.6
+  final:
+    - class_name: albumentations.pytorch.transforms.ToTensorV2
+      params:
+        p: 1.0

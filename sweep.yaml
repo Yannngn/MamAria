@@ -1,5 +1,5 @@
 program: main.py
-project: "6_2022_sweep"
+project: "5_2023_tversky"
 entity: 'tail-upenn'
 
 method: bayes
@@ -9,13 +9,17 @@ metric:
 
 parameters:
     optimizer:
-        value: adam #[adam, sgd]
+        values: [adam, sgd]
 
     loss_function:
-        values: [crossentropy, focal, tversky]
+        value: tversky # [crossentropy, focal, tversky]
 
-    adam_learning_rate:
-        min: .000001
-        max: .001
+    multiplier:
+        value: [1, 1, 1, 1]
+
+    tversky_alpha: 
+        values: [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1]
+    tversky_beta:
+        values: [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1]
 
   

@@ -1,62 +1,71 @@
 wandb:
-    project_name: "6_2022_sweep"
-    project_team: 'tail-upenn'
-    online: True
-
-time: 0
-epoch: 0 
+    project_name: "test"
+    project_team: "tail-upenn"
+    online: true
 
 project:
     device: 'gpu'
     num_workers: 12
-    max_num_epochs: 250
+    num_epochs: 200
     pin_memory: True
     load_model: False
-    validation_interval: 20
-
+    val_interval: 3
+    time: 0
+    epoch: 0 
 
 hyperparameters:
-    optimizer: 'adam'
-    loss_function: 'crossentropy'
-    scheduler: 'warm'
+    batch_size: 8
     weights: True
     
-    batch_size: 16
-    multiplier: [1,1,1,1]
-    
+    optimizer_fn: adam
+        
     adam_learning_rate: .0003
-    
+
     sgd_learning_rate: .01
     sgd_momentum: 0.9
     sgd_weight_decay: .0001
     sgd_nesterov: True
-    
+
+    loss_fn: tversky   
+    multiplier: [1, 1, 1, 1]
+            
     tversky_alpha: .5
     tversky_beta: .5
 
     focal_alpha: 1
     focal_gamma: 2
-
-    scheduler_patience: 5
-    earlystopping_patience: 10
+    
+    scheduler_fn: warm
+    scheduler_patience: 3
+    
+    earlystopping: True
+    earlystop_patience: 15
+    earlystop_wait: 15
 
 model:
     max_layer_size: 1024
     min_layer_size: 64
 
+calibration:
+    custom: False
+
 image:
-    image_height: 600 #512
-    image_width: 360 #301
+    phantom_format: 'dcm'
+    mask_format: 'png'
+    image_height: 600
+    image_width: 360
     image_channels: 1
     mask_channels: 1
     mask_labels: 4
-    phantom_format: 'dcm'
-    mask_format: 'png'
+
     labels: 
         0: 'background' 
         1: 'low_risk'
         2: 'moderate_risk'
         3: 'high_risk'
+
+load:
+    path: my_checkpoint.pth.tar
 
 paths:
     train_img_dir: "data/train/phantom/"
@@ -67,3 +76,5 @@ paths:
     test_mask_dir: "data/test/mask/"
     predictions_dir: "data/predictions/"
     submissions_dir: "data/submissions/"
+    calibrations_dir: "data/calibrations/"
+    confidences_dir: "data/confidences/"
