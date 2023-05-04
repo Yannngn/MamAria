@@ -64,7 +64,12 @@ def early_stop_validation(loader, model, global_metrics, label_metrics, config):
     device = get_device(config)
     logging.info("Early stopping model...")
 
-    loop = tqdm(loader, bar_format="{l_bar}{bar:75}{r_bar}{bar:-75b}")
+    loop = tqdm(
+        loader,
+        position=2,
+        leave=False,
+        desc="Early Stopping: ",
+    )
 
     model.eval()
     for idx, (data, targets) in enumerate(loop):
