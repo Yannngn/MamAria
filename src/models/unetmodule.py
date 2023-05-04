@@ -77,7 +77,7 @@ class UNET(nn.Module):
         for up_trans, double_conv_up, concat_layer in zip(self.up_trans, self.double_conv_ups, concat_layers):
             x = up_trans(x)
             if x.shape != concat_layer.shape:
-                x = F.resize(x, concat_layer.shape[2:])
+                x = F.resize(x, concat_layer.shape[2:], antialias=True)
 
             concatenated = torch.cat((concat_layer, x), dim=1)
             x = double_conv_up(concatenated)

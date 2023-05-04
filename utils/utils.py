@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+from typing import Literal
 
 import albumentations as A
 import cv2
@@ -12,9 +13,9 @@ from albumentations.pytorch import ToTensorV2
 from torch import nn, optim
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from torchgeometry import losses
 
 import wandb
+from losses import losses
 
 
 def get_time():
@@ -146,30 +147,31 @@ def get_weights(config):
     return torch.tensor(out).float().to(device)
 
 
-def get_loss_function(config, loss_list=[None, "crossentropy", "tversky", "focal"]):
-    loss_fn = config.hyperparameters.loss_fn
+def get_loss_function(config, loss_fn_name: Literal["crossentropy", "tversky", "focal"] | None = None):
+    if not loss_fn_name:
+        loss_fn_name = config.hyperparameters.loss_fn
+
     try:
-        assert loss_fn in loss_list
+        assert loss_fn_name in [None, "crossentropy", "tversky", "focal"]
     except AssertionError as aerr:
-        logging.error(f"{loss_fn} is not a recognized loss function")
+        logging.error(f"{loss_fn_name} is not a recognized loss function")
         raise aerr
 
-    if loss_fn == "crossentropy":
-        weights = get_weights(config) if config.hyperparameters.weights else None  # noqa: W
+    weights = get_weights(config) if config.hyperparameters.weights else None  # noqa: W
+
+    if loss_fn_name == "crossentropy":
         return nn.CrossEntropyLoss(weight=weights)
-    elif loss_fn == "tversky":
+    elif loss_fn_name == "tversky":
         return losses.TverskyLoss(
-            alpha=config.hyperparameters.tversky_alpha,
-            beta=config.hyperparameters.tversky_beta,
+            alpha=config.hyperparameters.tversky_alpha, beta=config.hyperparameters.tversky_beta, weights=weights
         )
-    elif loss_fn == "focal":
+    elif loss_fn_name == "focal":
         return losses.FocalLoss(
             alpha=config.hyperparameters.focal_alpha,
             gamma=config.hyperparameters.focal_gamma,
+            weights=weights,
             reduction="mean",
         )
-    else:
-        return None
 
 
 def get_optimizer(config, parameters, optim_list=["adam", "sgd"]):

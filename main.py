@@ -81,7 +81,7 @@ def main(config):
 
 
 if __name__ == "__main__":
-    logging.getLogger().setLevel(logging.WARNING)
+    logging.getLogger().setLevel(logging.INFO)
     # warnings.filterwarnings("ignore")
 
     torch.cuda.empty_cache()
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     with open("config.yaml") as f:
         config = munchify(safe_load(f))
 
-    os.environ["WANDB_MODE"] = "online" if config.wandb.online else "offline"
+    # os.environ["WANDB_MODE"] = "online" if config.wandb.online else "offline"
     config.project.time = get_time()
 
     main(config)

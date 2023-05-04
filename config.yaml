@@ -1,7 +1,7 @@
 wandb:
     project_name: "test"
     project_team: "tail-upenn"
-    online: false
+    online: true
 
 project:
     device: 'gpu'
@@ -27,7 +27,7 @@ hyperparameters:
     sgd_nesterov: True
 
     loss_fn: tversky   
-    multiplier: [1,.5,.5, 4]
+    multiplier: [1, 1, 1, 1]
             
     tversky_alpha: .5
     tversky_beta: .5
