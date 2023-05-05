@@ -9,7 +9,6 @@ import numpy as np
 import scipy
 import scipy.linalg
 import scipy.optimize
-from cv2 import log
 from jax._src.config import config
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import label_binarize

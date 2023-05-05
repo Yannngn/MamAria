@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from yaml import safe_load
 
+from calibrators.calibrator import DirichletCalibrator
 from calibrators.fulldirichlet import FullDirichletCalibrator
 from calibrators.minibatch_fulldirichlet import MiniBatchFullDirichletCalibrator
 from calibrators.utils import calibration_metrics, plot_results
@@ -64,7 +65,7 @@ def main(config):
         scores, labels = predict(model, val_loader, loss_fn)
         np.save(os.path.join(prediction_path, "val_scores.npy"), scores)
         np.save(os.path.join(prediction_path, "val_labels.npy"), labels)
-    print(scores.min(), scores.max())
+
     calibrator = calibrate(scores, labels, lambda_, mu_)
     weights = calibrator.weights
     logging.info(weights)
@@ -90,7 +91,7 @@ def calibrate(
 ):
     mini_batch = True
     if mini_batch:
-        calibrator = MiniBatchFullDirichletCalibrator(reg_lambda=lambda_[0], reg_mu=mu_[0], max_iter=1, ref_row=False)
+        calibrator = DirichletCalibrator(reg_lambda=lambda_[0], reg_mu=mu_[0], max_iter=1, ref_row=False)
     else:
         calibrator = FullDirichletCalibrator(reg_lambda=lambda_[0], reg_mu=mu_[0])
 
