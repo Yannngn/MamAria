@@ -170,7 +170,7 @@ def get_loss_function(config, loss_fn_name: Literal["crossentropy", "tversky", "
             alpha=config.hyperparameters.focal_alpha,
             gamma=config.hyperparameters.focal_gamma,
             weights=weights,
-            reduction="mean",
+            reduction="sum",
         )
 
 

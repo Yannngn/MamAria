@@ -1,5 +1,5 @@
 program: main.py
-project: "5_2023_tversky"
+project: "5_2023_focal"
 entity: 'tail-upenn'
 
 method: bayes
@@ -12,14 +12,23 @@ parameters:
         values: [adam, sgd]
 
     loss_function:
-        value: tversky # [crossentropy, focal, tversky]
+        value: focal # [crossentropy, focal, tversky]
 
     multiplier:
         value: [1, 1, 1, 1]
 
-    tversky_alpha: 
-        values: [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1]
-    tversky_beta:
-        values: [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1]
+    # tversky_alpha: 
+    #     values: [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1]
+    # tversky_beta:
+    #     values: [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1]
 
-  
+    focal_alpha: 
+        distribution: q_uniform
+        min: .1
+        max: 1
+        q: .1
+    focal_gamma:
+        distribution: q_uniform
+        min: 1
+        max: 5
+        q: .25

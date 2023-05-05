@@ -80,7 +80,7 @@ class FocalLoss(nn.Module):
         weight = torch.pow(1.0 - softmax_inputs, self.gamma)
         focal = -self.alpha * weight * torch.log(softmax_inputs)
 
-        loss_tmp = self.weights * torch.sum(one_hot_target * focal, dim=dims)
+        loss_tmp = self.weights * torch.mean(one_hot_target * focal, dim=dims)
 
         if self.reduction in ["none", None]:
             return loss_tmp
