@@ -42,6 +42,26 @@ def calibration_metrics(logits: torch.Tensor, labels: torch.Tensor) -> None:
     logging.info(f"MCE: {mce_criterion.loss(logits_np,labels_np):.3f}")
 
 
+def plot_reliability(scores, labels, time, odir: bool, calibrated: bool) -> None:
+    _ = plot_reliability_diagram(
+        labels=labels,
+        scores=scores,
+        class_names=["Background", "Low", "Mid", "High"],
+        show_gaps=True,
+        show_bars=True,
+        show_histogram=True,
+    )
+
+    pre_or_pos = "pos" if calibrated else "pre"
+    before_or_after = "After" if calibrated else "Before"
+
+    name = f'{time}_{pre_or_pos}_{"odir" if odir else "full"}.png'
+    path = os.path.join("data/plots/", name)
+
+    plt.title(f'{before_or_after} {"Odir" if odir else "Full"} Reliability Diagram')
+    plt.savefig(path)
+
+
 def plot_results(model, scores, labels, time, odir: bool) -> None:
     _ = plot_reliability_diagram(
         labels=labels,

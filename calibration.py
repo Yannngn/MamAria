@@ -16,7 +16,7 @@ from yaml import safe_load
 
 from calibrators.fulldirichlet import FullDirichletCalibrator
 from calibrators.minibatch_fulldirichlet import MiniBatchFullDirichletCalibrator
-from calibrators.utils import calibration_metrics, plot_results
+from calibrators.utils import calibration_metrics, plot_reliability, plot_results
 from models.unet import UNET
 from utils.utils import (
     get_device,
@@ -30,7 +30,7 @@ from utils.utils import (
 
 def load_torch_model(config):
     device = get_device(config)
-    assert os.path.isfile(config.load.path), print("checkpoint path was not provided")
+    assert os.path.isfile(config.load.path), "checkpoint path was not provided"
 
     model = UNET(config).to(device)
     model = nn.DataParallel(model)
@@ -64,10 +64,12 @@ def main(config):
         scores, labels = predict(model, val_loader, loss_fn)
         np.save(os.path.join(prediction_path, "val_scores.npy"), scores)
         np.save(os.path.join(prediction_path, "val_labels.npy"), labels)
+
+    plot_reliability(scores, labels, NOW, odir, False)
+
     print(scores.min(), scores.max())
     calibrator = calibrate(scores, labels, lambda_, mu_)
-    weights = calibrator.weights
-    logging.info(weights)
+    logging.info(calibrator.weights)
 
     del scores, labels
 
@@ -79,7 +81,7 @@ def main(config):
         np.save(os.path.join(prediction_path, "calib_scores.npy"), scores)
         np.save(os.path.join(prediction_path, "calib_labels.npy"), labels)
 
-    plot_results(calibrator, scores, labels, NOW, odir)
+    plot_reliability(scores, labels, NOW, odir, True)
 
 
 def calibrate(
