@@ -10,7 +10,7 @@ from lightning.pytorch.callbacks import Callback, ModelCheckpoint, Timer
 from lightning.pytorch.loggers import CSVLogger, Logger, WandbLogger
 from lightning.pytorch.profilers import Profiler
 from omegaconf import DictConfig
-from torch import Tensor
+from torch import Tensor, nn
 from wandb.sdk.lib import RunDisabled
 from wandb.wandb_run import Run
 
@@ -50,13 +50,25 @@ def get_weights(cfg: DictConfig, data_module: pl.LightningDataModule):
             shape = masks[0].shape
             total_pixels = len(data_module.train_dataset) * shape[-1] * shape[-2]
 
-        weights += torch.sum(torch.sum(mask == label) for label in range(cfg.num_classes) for mask in masks)
+        for label in range(cfg.num_classes):
+            weights[label] += torch.sum(masks == label)
 
-    return torch.divide(
+    weights = torch.divide(
         multiplier,
         weights / total_pixels,
         out=torch.zeros_like(weights, dtype=torch.float32),
     )
+
+    # softmax [0., 0., 0., 1.]
+    match cfg.normalize_weights:
+        case "max":  # [0.0083, 0.0200, 0.0284, 1.0000]
+            return weights / weights.max()
+        case "exp":  # [1.0000, 1.0119, 1.0204, 2.7183]
+            return torch.exp((weights - weights.min()) / (weights.max() - weights.min()))
+        case "min_max":  # [1.0000, 1.0118, 1.0202, 2.0000]
+            return 1 + (weights - weights.min()) / (weights.max() - weights.min())
+
+    return weights  # [  1.7175,   4.1301,   5.8554, 206.4117]
 
 
 @log

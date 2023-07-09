@@ -12,6 +12,8 @@ defaults:
   - optimizer: adamw
   - metrics: default
 
+# general
+
 num_classes: 4
 task: testing
 seed: null
@@ -21,6 +23,9 @@ label_map:
   1: low_risk
   2: moderate_risk
   3: high_risk
+
+multiplier: [1, 1, 1, 1]
+normalize_weights: null
 
 # system
 

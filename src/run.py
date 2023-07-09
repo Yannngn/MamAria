@@ -36,7 +36,9 @@ def main(cfg: DictConfig) -> None:
     setup(cfg)
 
     data_module = get_datamodule(cfg)
-    weights = torch.tensor([1, 1, 1, 1], dtype=torch.float32)  # get_weights(cfg, data_module=data_module)
+    weights = get_weights(cfg, data_module=data_module)
+    logging.info(f"The weights of the dataset are {weights}")
+
     model_module = get_model_module(cfg, weights)
     loggers = get_loggers(cfg)
     callbacks = get_callbacks(cfg)

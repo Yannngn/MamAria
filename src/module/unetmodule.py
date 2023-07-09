@@ -197,14 +197,14 @@ class UNETModule(pl.LightningModule):
             loss,
             on_step=True,
             on_epoch=True,
-            prog_bar=False,
+            prog_bar=True,
             logger=True,
             batch_size=len(image_names),
         )
 
         metrics.update(predictions, targets)
         log_dict = metrics.compute()
-        self.log_dict(log_dict, on_step=True, on_epoch=True, prog_bar=True, logger=True, batch_size=len(targets))
+        self.log_dict(log_dict, on_step=True, on_epoch=True, prog_bar=False, logger=True, batch_size=len(targets))
         metrics.reset()
 
         # TODO sample the images
