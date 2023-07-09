@@ -53,15 +53,16 @@ class TverskyLoss(TverskyScore):
 
     def forward(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         tversky_score = super().forward(inputs, target)
+        tversly_loss = 1 - tversky_score
 
         match self.reduction:
             case "mean":
-                return torch.mean(1 - tversky_score)
+                return torch.mean(tversly_loss)
 
             case "sum":
-                return torch.sum(1 - tversky_score)
+                return torch.sum(tversly_loss)
 
-        return 1 - tversky_score
+        return tversly_loss
 
 
 class FocalLoss(nn.Module):
@@ -119,20 +120,10 @@ class FocalLoss(nn.Module):
     def forward(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         self.__validate_args(inputs, target)
 
-        # compute softmax over the classes axis
-        softmax_inputs = F.softmax(inputs, dim=1) + self.eps
-
-        # create the labels one hot tensor
         one_hot_target: torch.Tensor = F.one_hot(target, num_classes=inputs.shape[1])
         one_hot_target = one_hot_target.permute(0, 3, 1, 2)
 
-        # compute the actual focal loss
-        # dims = (0, 2, 3)
-        # weight = torch.pow(1.0 - softmax_inputs, self.gamma)
-        # focal = -self.alpha * weight * torch.log(softmax_inputs)
-        # focal_loss = self.weights * torch.mean(one_hot_target * focal, dim=dims)
-
-        ce_loss = F.cross_entropy(inputs, target, self.weights, reduction="none")
+        ce_loss = F.cross_entropy(inputs, target, self.weights, reduction="none", label_smoothing=self.eps)
         ce_exp = torch.exp(-ce_loss)
 
         focal_loss = self.alpha * torch.pow(1 - ce_exp, self.gamma) * ce_loss
@@ -159,12 +150,26 @@ class FocalLoss(nn.Module):
 
 class FocalTverskyLoss(TverskyLoss):
     def __init__(
-        self, alpha: float = 0.7, beta: float = 1, gamma: float = 0.75, weights: list | None = None, eps: float = 1e-6
+        self,
+        alpha: float = 0.7,
+        beta: float = 1,
+        gamma: float = 0.75,
+        weights: list | None = None,
+        eps: float = 1e-6,
+        reduction: Literal["mean", "sum", "none"] | None = None,
     ) -> None:
         super().__init__(alpha, beta, weights, eps)
         self.gamma: float = gamma
 
     def forward(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         tversky_loss = super().forward(inputs, target)
+        focal_tversky_loss = torch.pow(tversky_loss, self.gamma)
 
-        return torch.pow(tversky_loss, self.gamma)
+        match self.reduction:
+            case "mean":
+                return torch.mean(focal_tversky_loss)
+
+            case "sum":
+                return torch.sum(focal_tversky_loss)
+
+        return focal_tversky_loss

@@ -1,0 +1,17 @@
+- _target_: lightning.pytorch.callbacks.early_stopping.EarlyStopping
+  patience: 10
+  mode: min
+  min_delta: 0.0001
+  check_on_train_epoch_end: false
+
+- _target_: lightning.pytorch.callbacks.model_checkpoint.ModelCheckpoint
+  save_top_k: 3
+  filename: ${task}-{epoch}-{step}
+  dirpath: ${paths.checkpoint_dir}
+  mode: min
+
+- _target_: lightning.pytorch.callbacks.LearningRateMonitor
+  logging_interval: null
+  log_momentum: false
+
+- _target_: lightning.pytorch.callbacks.Timer

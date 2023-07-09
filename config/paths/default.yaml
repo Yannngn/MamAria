@@ -1,0 +1,4 @@
+log_dir: ${root}/logs/${seed}/
+checkpoint_dir: ${root}/checkpoints/${seed}/
+result_dir: ${root}/results/${seed}/
+logging_file: logging_file.log

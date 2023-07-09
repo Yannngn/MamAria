@@ -1,0 +1,51 @@
+defaults:
+  - _self_
+  - paths: default
+  - trainer: default
+  - module: unet
+  - datamodule: dicom
+  - loggers: default
+  - callbacks: default
+  - transforms: default
+  - lr_scheduler: plateau
+  - loss_fn: cross_entropy
+  - optimizer: adamw
+  - metrics: default
+
+num_classes: 4
+task: testing
+seed: null
+model_name: unet
+label_map:
+  0: "background"
+  1: "low_risk"
+  2: "moderate_risk"
+  3: "high_risk"
+
+# system
+
+accelerator: gpu
+num_workers: 12
+batch_size: 4
+profiler:
+  _target_: lightning.pytorch.profilers.SimpleProfiler
+
+# logging
+
+online: false
+tags: null
+
+# paths
+
+root: null # /content/drive/Shareddrives/Aria/2023/modelo
+
+ckpt_path: null
+
+train_img_dir: "D:/MamAria/data/train/phantom/"
+train_mask_dir: "D:/MamAria/data/train/mask/"
+val_img_dir: "D:/MamAria/data/val/phantom/"
+val_mask_dir: "D:/MamAria/data/val/mask/"
+test_img_dir: "D:/MamAria/data/test/phantom/"
+test_mask_dir: "D:/MamAria/data/test/mask/"
+calib_image_dir: "D:/MamAria/data/val/phantom/"
+calib_mask_dir: "D:/MamAria/data/val/mask/"

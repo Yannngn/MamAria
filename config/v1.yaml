@@ -1,0 +1,51 @@
+defaults:
+  - _self_
+  - paths: default
+  - trainer: default
+  - datamodule: dicom
+  - module: unet
+  - loggers: default
+  - callbacks: default
+  - transforms: default
+  - lr_scheduler: plateau
+  - loss_fn: cross_entropy
+  - optimizer: adamw
+  - metrics: default
+
+num_classes: 4
+task: testing
+seed: null
+model_name: unet
+label_map:
+  0: background
+  1: low_risk
+  2: moderate_risk
+  3: high_risk
+
+# system
+
+accelerator: gpu
+num_workers: 12
+batch_size: 4
+profiler:
+  _target_: lightning.pytorch.profilers.SimpleProfiler
+
+# logging
+
+mode: offline
+tags: null
+
+# paths
+
+root: /mnt/d/Github/MamAria/data
+
+ckpt_path: null
+
+train_image_dir: ${root}/train/phantom/
+train_mask_dir: ${root}/train/mask/
+val_image_dir: ${root}/val/phantom/
+val_mask_dir: ${root}/val/mask/
+test_image_dir: ${root}/test/phantom/
+test_mask_dir: ${root}/test/mask/
+calib_image_dir: ${root}/val/phantom/
+calib_mask_dir: ${root}/val/mask/

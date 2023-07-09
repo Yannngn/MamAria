@@ -5,6 +5,7 @@ from typing import Literal
 
 import albumentations as A
 import cv2
+import glob2
 import numpy as np
 import torch
 import torchmetrics
@@ -118,60 +119,64 @@ def get_loaders(config, train_transform, val_transform, test_transform):
 
 def get_weights(config):
     device = get_device(config)
+
     weights = np.zeros(config.image.mask_labels)
+
     multiplier = np.array(config.hyperparameters.multiplier)
-    mask_dir = config.paths.train_mask_dir
-    total_pixels = 0
-    mask_files = [os.path.join(mask_dir, file) for file in os.listdir(mask_dir) if file.endswith(".png")]
 
-    for mask in mask_files:
-        temp = []
-        mask = cv2.imread(mask)
+    mask_files = glob2.glob(os.path.abspath(config.paths.train_mask_dir) + "*.png")
 
-        if total_pixels == 0:
-            total_pixels = mask.shape[1] * mask.shape[2]
+    shape = cv2.imread(mask_files[0]).shape
+    total_pixels = len(mask_files) * shape[1] * shape[2]
 
-        for i in range(config.image.mask_labels):
-            temp.append((mask == i).sum())
+    weights = sum(
+        np.sum(cv2.imread(mask, cv2.IMREAD_GRAYSCALE) == label)
+        for label in range(config.image.mask_labels)
+        for mask in mask_files
+    )
 
-        weights += temp
-
-    den = weights / (total_pixels * len(mask))
+    den = weights / total_pixels
     out = np.divide(
         multiplier,
         den,
         out=np.zeros_like(multiplier, dtype=float),
-        where=den != 0,
     )
 
     return torch.tensor(out).float().to(device)
 
 
-def get_loss_function(config, loss_fn_name: Literal["crossentropy", "tversky", "focal"] | None = None):
+def get_loss_function(
+    config, loss_fn_name: Literal["crossentropy", "tversky", "focal", "focal_tversky"] | None = None
+):
     if not loss_fn_name:
         loss_fn_name = config.hyperparameters.loss_fn
 
-    try:
-        assert loss_fn_name in [None, "crossentropy", "tversky", "focal"]
-    except AssertionError as aerr:
-        logging.error(f"{loss_fn_name} is not a recognized loss function")
-        raise aerr
-
-    weights = get_weights(config) if config.hyperparameters.weights else None  # noqa: W
-
-    if loss_fn_name == "crossentropy":
-        return nn.CrossEntropyLoss(weight=weights)
-    elif loss_fn_name == "tversky":
-        return losses.TverskyLoss(
-            alpha=config.hyperparameters.tversky_alpha, beta=config.hyperparameters.tversky_beta, weights=weights
-        )
-    elif loss_fn_name == "focal":
-        return losses.FocalLoss(
-            alpha=config.hyperparameters.focal_alpha,
-            gamma=config.hyperparameters.focal_gamma,
-            weights=weights,
-            reduction="sum",
-        )
+    weights = get_weights(config) if config.hyperparameters.weights else None
+    match loss_fn_name:
+        case "crossentropy":
+            return nn.CrossEntropyLoss(weight=weights)
+        case "tversky":
+            return losses.TverskyLoss(
+                alpha=config.hyperparameters.tversky_alpha,
+                beta=config.hyperparameters.tversky_beta,
+                weights=weights,
+            )
+        case "focal":
+            return losses.FocalLoss(
+                alpha=config.hyperparameters.focal_alpha,
+                gamma=config.hyperparameters.focal_gamma,
+                weights=weights,
+                reduction="sum",
+            )
+        case "focal_tversky":
+            return losses.FocalTverskyLoss(
+                alpha=config.hyperparameters.focal_alpha,
+                beta=config.hyperparameters.tversky_beta,
+                gamma=config.hyperparameters.focal_gamma,
+                weights=weights,
+            )
+        case _:
+            raise KeyError(f"{loss_fn_name} is not a recognized loss function")
 
 
 def get_optimizer(config, parameters, optim_list=["adam", "sgd"]):

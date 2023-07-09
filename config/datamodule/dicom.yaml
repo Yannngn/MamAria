@@ -1,0 +1,24 @@
+defaults:
+  - _self_
+
+_target_: src.datamodule.phantom.PhantomData
+dataset:
+  _target_: src.dataset.phantom.PhantomDCMDataset
+  _partial_: true
+  image_size: [2816, 3584]
+
+train_image_dir: ${train_image_dir}
+train_mask_dir: ${train_mask_dir}
+val_image_dir: ${val_image_dir}
+val_mask_dir: ${val_mask_dir}
+test_image_dir: ${test_image_dir}
+test_mask_dir: ${test_mask_dir}
+calib_image_dir: ${calib_image_dir}
+calib_mask_dir: ${calib_mask_dir}
+
+val_size: 0.3
+
+num_classes: ${num_classes}
+num_workers: ${num_workers}
+batch_size: ${batch_size}
+transforms: ${transforms}

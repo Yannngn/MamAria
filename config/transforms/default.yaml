@@ -1,0 +1,30 @@
+_target_: src.transforms.albumentations.CustomTransforms
+
+compose:
+  _partial_: true
+  _target_: albumentations.Compose
+
+preprocessing:
+  - _target_: albumentations.augmentations.crops.transforms.Crop
+    x_min: 1016
+    y_min: 292
+    x_max: 2816
+    y_max: 3292
+
+  - _target_: albumentations.augmentations.geometric.resize.Resize
+    height: 600
+    width: 360
+    p: 1.0
+    interpolation: 4
+
+  - _target_: albumentations.augmentations.transforms.Normalize
+    mean: 0
+    std: 1
+    max_pixel_value: 1.0
+
+augmentation:
+  train: null
+
+  val: null
+
+  test: null

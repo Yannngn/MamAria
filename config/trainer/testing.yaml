@@ -1,0 +1,7 @@
+max_epochs: 3
+check_val_every_n_epoch: 1
+default_root_dir: ${paths.checkpoint_dir}
+fast_dev_run: false
+log_every_n_steps: null
+accelerator: ${accelerator}
+accumulate_grad_batches: 1

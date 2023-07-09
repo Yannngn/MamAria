@@ -2,6 +2,7 @@ wandb:
   project_name: "test"
   project_team: "tail-upenn"
   online: false
+
 general:
   logging_file: "logging_treino.log"
   log_dir: "logs/"
@@ -10,17 +11,20 @@ general:
   submissions_dir: "data/submissions/"
   calibrations_dir: "data/calibrations/"
   confidences_dir: "data/confidences/"
+
 trainer:
-  max_epochs: 200
-  check_val_every_n_epoch: 10
+  max_epochs: 3
+  check_val_every_n_epoch: 1
   default_root_dir: ${general.checkpoint_dir}
   fast_dev_run: false
+
 logger:
   - class_name: lightning.pytorch.loggers.WandB
     params:
       save_dir: ${general.log_dir}
       project_name: 07_2023_lightning
       online: true
+
 callbacks:
   - class_name: lightning.pytorch.callbacks.early_stopping.EarlyStopping
     params:
@@ -39,6 +43,7 @@ callbacks:
   - class_name: lightning.pytorch.callbacks.lr_finder.LearningRateFinder
     params:
       update_attr: true
+
 data:
   class_name: PhantomDCMData
   params:

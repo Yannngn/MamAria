@@ -1,4 +1,7 @@
 {
   "git.ignoreLimitWarning": true,
-  "python.analysis.typeCheckingMode": "off"
+  "python.analysis.typeCheckingMode": "off",
+  "yaml.schemas": {
+    "https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/meta.json": "file:///home/ubuntu_yannn/projects/python/Yannngn/MamAria/config/template.yaml"
+  }
 }

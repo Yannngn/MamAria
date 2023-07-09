@@ -1,0 +1,16 @@
+defaults:
+  - _self_
+_partial_: true
+_target_: src.module.unetmodule.UNETModule
+num_classes: ${num_classes}
+hidden_layer: 256
+transfer: true
+lr: 0.001
+save_dir: ${paths.result_dir}
+monitor: train_loss
+interval: epoch
+loss_fn: ${loss_fn}
+optimizer: ${optimizer}
+lr_scheduler: ${lr_scheduler}
+metrics: ${metrics}
+label_map: ${label_map}

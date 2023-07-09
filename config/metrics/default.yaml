@@ -1,0 +1,3 @@
+_target_: src.metrics.classifier_metrics.ClassifierMetric
+num_classes: ${num_classes}
+top_k: null
