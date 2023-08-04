@@ -40,7 +40,8 @@ class PhantomDCMDataset(PhantomDataset):
     def __getitem__(self, idx: int) -> tuple[Tensor, Tensor, tuple[int, str]]:
         # Get Image and corresponding Mask paths
         image_path = os.path.join(self.image_dir, self.images[idx])
-        mask_path = os.path.join(self.mask_dir, self.images[idx]).replace("_proj.dcm", "_risk.png")
+        mask_path = os.path.join(self.mask_dir, self.images[idx]).replace("proj.dcm", "risk.png")
+
         # Convert Image and Mask to numpy
         image = pydicom.read_file(image_path)
         image = Image.frombytes("I;16", tuple(self.image_size), image.pixel_array)

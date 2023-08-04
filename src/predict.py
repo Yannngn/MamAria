@@ -4,10 +4,9 @@ import sys
 import hydra
 import lightning as pl
 import pyrootutils
+import wandb
 from lightning.pytorch.profilers import SimpleProfiler
 from omegaconf import DictConfig
-
-import wandb
 
 ROOT_DIR = pyrootutils.setup_root(
     search_from=__file__,

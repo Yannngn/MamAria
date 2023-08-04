@@ -55,7 +55,7 @@ class PhantomData(pl.LightningDataModule):
         self,
         stage: Literal["fit", "test", "calibrate"] | None,
     ) -> None:
-        if stage == "fit" or stage is None:
+        if stage in ["fit", None]:
             if self.val_image_dir is None:
                 self.train_dataset, self.val_dataset = self.get_train_val_dataset()
                 return
@@ -71,14 +71,14 @@ class PhantomData(pl.LightningDataModule):
                 transforms=self.transforms.get_transforms("test"),
             )
 
-        if stage == "test" or stage is None:
+        if stage in ["test", None]:
             self.test_dataset = self.dataset(
                 image_dir=self.test_image_dir,
                 mask_dir=self.test_mask_dir,
                 transforms=self.transforms.get_transforms("test"),
             )
 
-        if stage == "calibrate" or stage is None:
+        if stage in ["calibrate", None]:
             self.calib_dataset = self.dataset(
                 image_dir=self.calib_image_dir,
                 mask_dir=self.calib_mask_dir,

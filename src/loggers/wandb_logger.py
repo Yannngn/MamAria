@@ -1,7 +1,6 @@
+import wandb
 from lightning.pytorch.loggers.wandb import WandbLogger
 from torch import Tensor
-
-import wandb
 
 
 class WandBLogger(WandbLogger):
@@ -19,7 +18,7 @@ class WandBLogger(WandbLogger):
         output = []
         for name, image, target, prediction in zip(image_names, images, targets, predictions):
             wandb_image = wandb.Image(
-                image.squeeze(),
+                image.squeeze().detach().cpu(),
                 caption=name,
                 masks={
                     "prediction": {
@@ -43,7 +42,7 @@ class WandBLogger(WandbLogger):
         output = []
         for name, image, target, prediction in zip(image_names, images, targets, predictions):
             wandb_image = wandb.Image(
-                image.squeeze(),
+                image.squeeze().detach().cpu(),
                 caption=name,
                 masks={
                     "prediction": {

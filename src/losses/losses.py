@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# TODO remover __validate_args dos losses, aplicar validação num passo anterior
+
 
 class TverskyScore(nn.Module):
     def __init__(self, alpha: float = 0.5, beta: float = 0.5, weights: Any | None = None, eps: float = 1e-6) -> None:
@@ -82,14 +84,14 @@ class FocalLoss(nn.Module):
         alpha (float): Weighting factor :math:`\alpha \in [0, 1]`.
         gamma (float): Focusing parameter :math:`\gamma >= 0`.
         reduction (Optional[str]): Specifies the reduction to apply to the
-         output: ‘none’ | ‘mean’ | ‘sum’. ‘none’: no reduction will be applied,
-         ‘mean’: the sum of the output will be divided by the number of elements
-         in the output, ‘sum’: the output will be summed. Default: ‘none’.
+         output: 'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+         'mean': the sum of the output will be divided by the number of elements
+         in the output, 'sum': the output will be summed. Default: 'none'.
 
     Shape:
         - Input: :math:`(N, C, H, W)` where C = number of classes.
         - Target: :math:`(N, H, W)` where each value is
-          :math:`0 ≤ targets[i] ≤ C−1`.
+          :math:`0 ≤ targets[i] ≤ C-1`.
 
     Examples:
         >>> N = 5  # num_classes
