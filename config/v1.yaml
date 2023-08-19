@@ -8,13 +8,14 @@ defaults:
   - callbacks: default
   - transforms: default
   - lr_scheduler: plateau
-  - loss_fn: cross_entropy
+  - loss_fn: focal_tversky
   - optimizer: adamw
   - metrics: default
 
 # general
 
 num_classes: 4
+image_size: [360, 600]
 task: testing
 seed: null
 model_name: unet
@@ -25,7 +26,6 @@ label_map:
   3: high_risk
 
 multiplier: [1, 1, 1, 1]
-normalize_weights: null
 
 # system
 
@@ -33,11 +33,12 @@ accelerator: gpu
 num_workers: 12
 batch_size: 4
 profiler:
-  _target_: lightning.pytorch.profilers.SimpleProfiler
+  null
+  # _target_: lightning.pytorch.profilers.SimpleProfiler
 
 # logging
 
-mode: offline
+mode: online
 tags: null
 
 # paths

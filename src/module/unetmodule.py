@@ -19,7 +19,7 @@ class UNET(nn.Module):
         min_layer_size: int,
         max_layer_size: int,
         in_channels: int,
-        num_classes=int,
+        num_classes: int,
     ):
         super().__init__()
         self.min_layer_size = min_layer_size
@@ -109,7 +109,11 @@ class UNETModule(pl.LightningModule):
 
         self.__optimizer = optimizer
         self.__lr_scheduler = lr_scheduler
-        self.loss_fn = loss_fn(weights)
+
+        if isinstance(weights, Tensor):
+            weights = weights.to(self.device)
+
+        self.loss_fn = loss_fn(weight=weights)
         self.lr = lr
         self.metrics = metrics
 
@@ -152,7 +156,7 @@ class UNETModule(pl.LightningModule):
 
         predictions = self.model(images)
         loss = self.loss_fn(predictions, targets)
-
+        nn.CrossEntropyLoss()
         self.log(
             "train_loss",
             loss,
@@ -172,9 +176,11 @@ class UNETModule(pl.LightningModule):
         return self.__eval_step(batch, batch_idx, stage="test")
 
     def predict_step(self, batch: Any, batch_idx: int) -> Any:
+        # Predict for calibration
         self.model.eval()
-        images, _, _ = batch
-        output = self.model(images)
+        images, targets, _ = batch
+
+        return targets, self.model(images)
         # TODO save files
 
     def __get_default_model(self) -> UNET:

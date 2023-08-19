@@ -106,7 +106,7 @@ class FocalLoss(nn.Module):
         self,
         alpha: float = 0.8,
         gamma: float = 2.0,
-        weights: list | None = None,
+        weights: torch.Tensor | None = None,
         eps: float = 1e-6,
         reduction: Literal["mean", "sum"] | None = None,
     ) -> None:

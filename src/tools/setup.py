@@ -7,14 +7,13 @@ import hydra
 import lightning as pl
 import torch
 from lightning.pytorch.callbacks import Callback, ModelCheckpoint, Timer
-from lightning.pytorch.loggers import CSVLogger, Logger, WandbLogger
+from lightning.pytorch.loggers import CSVLogger, Logger
+from lightning.pytorch.loggers.wandb import WandbLogger
 from lightning.pytorch.profilers import Profiler
 from omegaconf import DictConfig
-from torch import Tensor, nn
+from torch import Tensor
 from wandb.sdk.lib import RunDisabled
 from wandb.wandb_run import Run
-
-import wandb
 
 from .utils import log, log_list
 
@@ -23,11 +22,11 @@ from .utils import log, log_list
 def get_datamodule(cfg: DictConfig, stage: Literal["fit", "test"] | None = None) -> pl.LightningDataModule:
     """returns configured data module"""
 
-    data_module = hydra.utils.instantiate(cfg.datamodule)
+    data_module: pl.LightningDataModule = hydra.utils.instantiate(cfg.datamodule)
 
-    data_module.setup(stage)
+    data_module.setup(stage)  # type: ignore
 
-    if stage in ["fit", None] and getattr(cfg.trainer, "log_every_n_steps", None) is None:
+    if stage in ("fit", None) and getattr(cfg.trainer, "log_every_n_steps", None) is None:
         steps_per_epoch = len(data_module.val_dataset) // cfg.datamodule.batch_size  # type: ignore
         setattr(cfg.trainer, "log_every_n_steps", steps_per_epoch)
 
@@ -36,37 +35,26 @@ def get_datamodule(cfg: DictConfig, stage: Literal["fit", "test"] | None = None)
 
 @log
 def get_weights(cfg: DictConfig, data_module: pl.LightningDataModule):
-    weights = torch.zeros((cfg.num_classes,), dtype=torch.float32)
+    weights = torch.zeros(cfg.num_classes, dtype=torch.float32)
 
-    multiplier = torch.ones_like(weights)
+    multiplier = torch.tensor(cfg.multiplier) if cfg.get("multiplier", None) else torch.ones_like(weights)
 
     loader = data_module.train_dataloader()
-    shape = total_pixels = None
+    total_pixels = None
 
     for batch in loader:
         _, masks, _ = batch
 
         if not total_pixels:
             shape = masks[0].shape
-            total_pixels = len(data_module.train_dataset) * shape[-1] * shape[-2]
+            total_pixels = len(data_module.train_dataset) * shape[-1] * shape[-2]  # type: ignore
 
         for label in range(cfg.num_classes):
             weights[label] += torch.sum(masks == label)
 
-    weights = torch.divide(
-        multiplier,
-        weights / total_pixels,
-        out=torch.zeros_like(weights, dtype=torch.float32),
-    )
+    weights = torch.divide(multiplier, weights / total_pixels)
 
-    # softmax [0., 0., 0., 1.]
-    match cfg.normalize_weights:
-        case "max":  # [0.0083, 0.0200, 0.0284, 1.0000]
-            return weights / weights.max()
-        case "exp":  # [1.0000, 1.0119, 1.0204, 2.7183]
-            return torch.exp((weights - weights.min()) / (weights.max() - weights.min()))
-        case "min_max":  # [1.0000, 1.0118, 1.0202, 2.0000]
-            return 1 + (weights - weights.min()) / (weights.max() - weights.min())
+    # weights = torch.divide(multiplier, 1 + torch.exp(-weights / (1 - total_pixels)))
 
     return weights  # [  1.7175,   4.1301,   5.8554, 206.4117]
 
@@ -87,10 +75,10 @@ def get_loggers(cfg: DictConfig) -> list[Logger]:
     if loggers_config := cfg.get("loggers"):
         return [hydra.utils.instantiate(logger) for logger in loggers_config]
 
-    else:
-        return [CSVLogger(cfg.paths.log_dir)]
+    return [CSVLogger(cfg.paths.log_dir)]
 
 
+# FIXME TypeError: 'NoneType' object is not iterable
 @log
 def get_wandb_experiment(loggers: list[Logger]) -> Run | RunDisabled | None:
     """returns the comet experiment from the list of loggers if it exists"""
@@ -110,12 +98,13 @@ def get_callbacks(cfg: DictConfig) -> list[Callback]:
             if str(callback._target_).endswith(("EarlyStopping", "ModelCheckpoint")):
                 # instantiate earlystopping and modelcheckpoint with monitor
                 callbacks.append(hydra.utils.instantiate(callback, monitor=cfg.module.monitor))
-            else:
-                callbacks.append(hydra.utils.instantiate(callback))
+                continue
+
+            callbacks.append(hydra.utils.instantiate(callback))
 
         return callbacks
-    else:
-        return [Timer()]
+
+    return [Timer()]
 
 
 @log

@@ -1,28 +1,34 @@
 from typing import Any, Literal
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import Tensor, nn
+from torch.nn import functional as F
 
 
 class TverskyScore(nn.Module):
-    def __init__(self, alpha: float = 0.5, beta: float = 0.5, weights: Any | None = None, eps: float = 1e-6) -> None:
+    def __init__(self, alpha: float = 0.5, beta: float = 0.5, weight: Any | None = None, eps: float = 1e-6) -> None:
+        super().__init__()
         self.alpha = alpha
         self.beta = beta
         self.eps = eps
-        self.weights = weights
+        self.weight = weight
 
     def forward(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         self.__validate_args(inputs, target)
+
+        device = inputs.device
+        if self.weight is not None:
+            self.weight = self.weight.to(device)
+        else:
+            self.weight = torch.ones(inputs.shape[1], device=device)
 
         softmax_inputs = F.softmax(inputs, dim=1)
 
         one_hot_target: torch.Tensor = F.one_hot(target, num_classes=inputs.shape[1])
         one_hot_target = one_hot_target.permute(0, 3, 1, 2)
-
         dims = (0, 2, 3)
 
-        tp = self.weights * torch.sum(softmax_inputs * one_hot_target, dims)
+        tp = self.weight * torch.sum(softmax_inputs * one_hot_target, dims)
         fp = torch.sum(softmax_inputs * (1 - one_hot_target), dims)
         fn = torch.sum((1 - softmax_inputs) * one_hot_target, dims)
 
@@ -44,11 +50,11 @@ class TverskyLoss(TverskyScore):
         self,
         alpha: float = 0.5,
         beta: float = 0.5,
-        weights: Any | None = None,
+        weight: Any | None = None,
         eps: float = 1e-6,
         reduction: Literal["mean", "sum", "none"] | None = None,
     ) -> None:
-        super().__init__(alpha, beta, weights, eps)
+        super().__init__(alpha, beta, weight, eps)
         self.reduction = reduction
 
     def forward(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -82,14 +88,14 @@ class FocalLoss(nn.Module):
         alpha (float): Weighting factor :math:`\alpha \in [0, 1]`.
         gamma (float): Focusing parameter :math:`\gamma >= 0`.
         reduction (Optional[str]): Specifies the reduction to apply to the
-         output: ‘none’ | ‘mean’ | ‘sum’. ‘none’: no reduction will be applied,
-         ‘mean’: the sum of the output will be divided by the number of elements
-         in the output, ‘sum’: the output will be summed. Default: ‘none’.
+         output: `none` | `mean` | `sum`. `none`: no reduction will be applied,
+         `mean`: the sum of the output will be divided by the number of elements
+         in the output, `sum`: the output will be summed. Default: `none`.
 
     Shape:
         - Input: :math:`(N, C, H, W)` where C = number of classes.
         - Target: :math:`(N, H, W)` where each value is
-          :math:`0 ≤ targets[i] ≤ C−1`.
+          :math:`0 ≤ targets[i] ≤ C-1`.
 
     Examples:
         >>> N = 5  # num_classes
@@ -107,23 +113,30 @@ class FocalLoss(nn.Module):
         self,
         alpha: float = 0.8,
         gamma: float = 2.0,
-        weights: list | None = None,
+        weight: torch.Tensor | None = None,
         eps: float = 1e-6,
         reduction: Literal["mean", "sum"] | None = None,
     ) -> None:
+        super().__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.reduction = reduction
         self.eps = eps
-        self.weights = weights
+        self.weight = weight
 
-    def forward(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, inputs: Tensor, target: Tensor) -> Tensor:
         self.__validate_args(inputs, target)
 
-        one_hot_target: torch.Tensor = F.one_hot(target, num_classes=inputs.shape[1])
-        one_hot_target = one_hot_target.permute(0, 3, 1, 2)
+        device = inputs.device
+        if self.weight is not None:
+            self.weight = self.weight.to(device)
+        else:
+            self.weight = torch.ones(inputs.shape[1], device=device)
 
-        ce_loss = F.cross_entropy(inputs, target, self.weights, reduction="none", label_smoothing=self.eps)
+        one_hot_target: Tensor = F.one_hot(target, num_classes=inputs.shape[1])
+        one_hot_target = one_hot_target.permute(0, 3, 1, 2).to(device)
+
+        ce_loss = F.cross_entropy(inputs, target, self.weight, reduction="none", label_smoothing=self.eps)
         ce_exp = torch.exp(-ce_loss)
 
         focal_loss = self.alpha * torch.pow(1 - ce_exp, self.gamma) * ce_loss
@@ -137,7 +150,7 @@ class FocalLoss(nn.Module):
 
         return focal_loss
 
-    def __validate_args(self, inputs: torch.Tensor, target: torch.Tensor):
+    def __validate_args(self, inputs: Tensor, target: Tensor):
         assert torch.is_tensor(inputs), f"Input type is not a torch.Tensor. Got {type(inputs)}"
         assert len(inputs.shape) == 4, f"Invalid input shape, we expect BxNxHxW. Got: {inputs.shape}"
         assert (
@@ -154,14 +167,15 @@ class FocalTverskyLoss(TverskyLoss):
         alpha: float = 0.7,
         beta: float = 1,
         gamma: float = 0.75,
-        weights: list | None = None,
+        weight: list | None = None,
         eps: float = 1e-6,
         reduction: Literal["mean", "sum", "none"] | None = None,
     ) -> None:
-        super().__init__(alpha, beta, weights, eps)
+        super().__init__(alpha, beta, weight, eps)
         self.gamma: float = gamma
+        self.reduction = reduction
 
-    def forward(self, inputs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, inputs: Tensor, target: Tensor) -> Tensor:
         tversky_loss = super().forward(inputs, target)
         focal_tversky_loss = torch.pow(tversky_loss, self.gamma)
 

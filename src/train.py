@@ -4,10 +4,9 @@ import sys
 import hydra
 import lightning as pl
 import pyrootutils
-from lightning.pytorch.tuner import Tuner
-from omegaconf import DictConfig, OmegaConf
-
 import wandb
+from lightning.pytorch.tuner.tuning import Tuner
+from omegaconf import DictConfig, OmegaConf
 
 ROOT_DIR = pyrootutils.setup_root(
     search_from=__file__,

@@ -4,10 +4,7 @@ import sys
 import hydra
 import lightning as pl
 import pyrootutils
-import torch
 from omegaconf import DictConfig, OmegaConf
-
-import wandb  # import wandb before torch
 
 ROOT_DIR = pyrootutils.setup_root(
     search_from=__file__,
@@ -34,6 +31,7 @@ from src.tools import (
 @hydra.main(config_path=f"{ROOT_DIR}/config", config_name="v1.yaml", version_base=None)
 def main(cfg: DictConfig) -> None:
     setup(cfg)
+    # TODO save in dir with wandb run name
 
     data_module = get_datamodule(cfg)
     weights = get_weights(cfg, data_module=data_module)
@@ -43,13 +41,6 @@ def main(cfg: DictConfig) -> None:
     loggers = get_loggers(cfg)
     callbacks = get_callbacks(cfg)
     profiler = get_profiler(cfg)
-
-    if experiment := get_wandb_experiment(loggers):
-        # TODO add tags
-        # experiment.tags += OmegaConf.to_object(cfg.tags)
-        # TODO add config dict to log
-        # experiment.config(OmegaConf.to_object(cfg))
-        pass
 
     trainer = pl.Trainer(**cfg.trainer, profiler=profiler, logger=loggers, callbacks=callbacks)
     logging.info("Trainer was set. Fitting")
@@ -66,10 +57,6 @@ def main(cfg: DictConfig) -> None:
         logging.info("No ModelCheckpoint to test, exiting.")
 
         return
-
-    if experiment:
-        logging.info("Logging best checkpoint")
-        experiment.log({"best_checkpoint", best_ckpt})
 
     # EVALUATE STEP
 

@@ -124,7 +124,7 @@ class PhantomData(pl.LightningDataModule):
             transforms=self.transforms.get_transforms("train"),
         )
 
-        indices = torch.randperm(len(dataset)).tolist()
+        indices = torch.randperm(len(dataset)).tolist()  # type: ignore
         length = int(self.val_size * len(indices))
 
         dataset_train = Subset(dataset, indices[length:])

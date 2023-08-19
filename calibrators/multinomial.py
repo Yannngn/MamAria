@@ -1,4 +1,3 @@
-# flake8: noqa
 from __future__ import division
 
 import logging
@@ -40,7 +39,7 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
                 If 'fmin_l_bfgs_b' then uses scipy.ptimize.fmin_l_bfgs_b which
                 implements a quasi Newton method
         """
-        if method not in ["Full", "Diag", "FixDiag"]:
+        if method not in ("Full", "Diag", "FixDiag"):
             raise (ValueError("method {} not avaliable".format(method)))
 
         self.weights_0 = weights_0
@@ -153,7 +152,7 @@ class MultinomialRegression(BaseEstimator, RegressorMixin):
         matrix.
         """
 
-        if initializer not in ["identity", None]:
+        if initializer not in ("identity", None):
             raise ValueError
 
         k = len(self.classes)
@@ -203,7 +202,7 @@ _hessian = jax.hessian(_objective, argnums=0)
 def _get_weights(params, k, ref_row, method):
     """Reshapes the given params (weights) into the full matrix including 0"""
 
-    if method in ["Full", None]:
+    if method in ("Full", None):
         raw_weights = params.reshape(-1, k + 1)
         # weights = np.zeros([k, k+1])
         # weights[:-1, :] = params.reshape(-1, k + 1)

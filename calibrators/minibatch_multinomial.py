@@ -22,7 +22,8 @@ config.update("jax_enable_x64", True)
 class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
     def __init__(
         self,
-        weights_0: Any = None,
+        num_classes: int,
+        init_weights: Any = None,
         method: Literal["Full", "Diag", "FixDiag"] = "Full",
         initializer: Literal["identity"] | None = "identity",
         reg_format: Literal["identity"] | None = None,
@@ -41,10 +42,10 @@ class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
                 If 'fmin_l_bfgs_b' then uses scipy.ptimize.fmin_l_bfgs_b which
                 implements a quasi Newton method
         """
-        if method not in ["Full", "Diag", "FixDiag"]:
+        if method not in ("Full", "Diag", "FixDiag"):
             raise ValueError(f"method {method} not avaliable")
-
-        self.weights_0 = weights_0
+        self.num_classes = num_classes
+        self.init_weights = init_weights
         self.method = method
         self.initializer = initializer
         self.reg_format = reg_format
@@ -62,8 +63,8 @@ class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
             return
         logging.info("setting up first_fit")
         self.classes: np.ndarray = np.unique(y)
-        self.weights_ = self.weights_0
-        self.weights_0_ = self.weights_0
+        self.weights_ = self.init_weights
+        self.weights_0_ = self.init_weights
 
         self.num_classes = len(self.classes)
 
@@ -109,7 +110,7 @@ class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
 
         self.weights_0_ = self._get_initial_weights(self.initializer)
 
-        if self.optimizer in ["newton", "auto"] and self.num_classes <= 36:
+        if self.optimizer in ("newton", "auto") and self.num_classes <= 36:
             weights = _newton_update(
                 self.weights_0_,
                 X_,
@@ -124,7 +125,7 @@ class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
                 reg_format=self.reg_format,
             )
 
-        elif self.optimizer in ["fmin_l_bfgs_b", "auto"] and self.num_classes > 36:
+        elif self.optimizer in ("fmin_l_bfgs_b", "auto") and self.num_classes > 36:
 
             def _gradient_np(*args, **kwargs):
                 return np.array(_gradient(*args, **kwargs))
@@ -185,7 +186,7 @@ class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
 
         self.weights_0_ = self._get_initial_weights(self.initializer)
 
-        if self.optimizer in ["newton", "auto"] and k <= 36:
+        if self.optimizer in ("newton", "auto") and k <= 36:
             weights = _newton_update(
                 self.weights_0_,
                 X_,
@@ -199,7 +200,7 @@ class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
                 initializer=self.initializer,
                 reg_format=self.reg_format,
             )
-        elif self.optimizer in ["fmin_l_bfgs_b", "auto"] and k > 36:
+        elif self.optimizer in ("fmin_l_bfgs_b", "auto") and k > 36:
 
             def _gradient_np(*args, **kwargs):
                 return np.array(_gradient(*args, **kwargs))
@@ -237,7 +238,7 @@ class MiniBatchMultinomialRegression(BaseEstimator, RegressorMixin):
         matrix.
         """
 
-        assert initializer in ["identity", None], "invalid initializer"
+        assert initializer in ("identity", None), "invalid initializer"
 
         if self.weights_0_ is not None:
             return self.weights_0_
@@ -293,7 +294,7 @@ _hessian = jax.hessian(_objective)
 def _get_weights(params, k: int, ref_row: bool, method: Literal["Full", "Diag", "FixDiag"]) -> jax.Array:
     """Reshapes the given params (weights) into the full matrix including 0"""
 
-    if method in ["Full", None]:
+    if method in ("Full", None):
         raw_weights = jnp.reshape(params, (-1, k + 1))
 
     elif method == "Diag":
@@ -312,7 +313,7 @@ def _get_weights(params, k: int, ref_row: bool, method: Literal["Full", "Diag", 
 
 
 def _get_identity_weights(k: int, ref_row: bool, method) -> jax.Array:
-    if method in ["Full", None]:
+    if method in ("Full", None):
         raw_weights = jnp.hstack([jnp.eye(k), jnp.zeros([k, 1])])
 
     elif method == "Diag":

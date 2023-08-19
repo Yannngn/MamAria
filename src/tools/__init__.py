@@ -16,3 +16,4 @@ from tools.setup import (
     get_weights,
     setup,
 )
+from tools.utils import log, log_list

@@ -1,5 +1,6 @@
 - _target_: loggers.wandb_logger.WandBLogger
   save_dir: ${paths.log_dir}
-  project: tail-upenn
+  entity: tail-upenn
+  project: "7_2023"
   group: ${task}
   mode: ${mode}
