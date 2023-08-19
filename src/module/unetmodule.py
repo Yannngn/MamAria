@@ -8,12 +8,14 @@ from torchvision.transforms import functional as F
 from loggers.wandb_logger import WandBLogger
 from src.metrics.classifier_metrics import ClassifierMetric
 
-# Differences from original UNET:
-# 1) Add padding to preserve original input size
-# 2) Add BatchNorm2d to improve my results
-
 
 class UNET(nn.Module):
+    """
+    Differences from original UNET:
+    1) Add padding to preserve original input size
+    2) Add BatchNorm2d to improve my results
+    """
+
     def __init__(
         self,
         min_layer_size: int,
@@ -93,13 +95,11 @@ class UNETModule(pl.LightningModule):
         self,
         optimizer: Callable[..., optim.Optimizer],
         lr_scheduler: Callable[..., optim.lr_scheduler.LRScheduler],
-        lr: float,
         loss_fn: Callable[..., nn.Module],
-        metrics: ClassifierMetric,
         num_classes: int,
-        hidden_layer: int,
-        transfer: bool,
-        weights: Tensor | None,
+        lr: float,
+        metrics: ClassifierMetric,
+        weights: Tensor | None = None,
         label_map: dict[int, str] | None = None,
         monitor: str = "train_loss",
         interval: str = "epoch",
@@ -109,24 +109,20 @@ class UNETModule(pl.LightningModule):
 
         self.__optimizer = optimizer
         self.__lr_scheduler = lr_scheduler
+        self.loss_fn = loss_fn(weights)
 
-        if isinstance(weights, Tensor):
-            weights = weights.to(self.device)
-
-        self.loss_fn = loss_fn(weight=weights)
         self.lr = lr
-        self.metrics = metrics
-
         self.num_classes = num_classes
-        self.hidden_layer = hidden_layer
-        self.transfer = transfer
-        self.lr_monitor = monitor
-        self.lr_interval = interval
-        self.save_dir = save_dir
-        self.model = self.get_model()
+
+        self.metrics = metrics
 
         self.label_map = label_map
 
+        self.lr_monitor = monitor
+        self.lr_interval = interval
+        self.save_dir = save_dir
+
+        self.model = self.get_model()
         self.val_metrics = self.metrics.clone("val_")
         self.test_metrics = self.metrics.clone("test_")
 
@@ -134,7 +130,7 @@ class UNETModule(pl.LightningModule):
         return self.model(x)
 
     def get_model(self):
-        return self.__get_default_model()
+        return UNET(min_layer_size=64, max_layer_size=1024, in_channels=1, num_classes=self.num_classes)
 
     def configure_optimizers(self) -> Any:
         self.optimizer = self.__optimizer(params=self.model.parameters(), lr=self.lr)
@@ -182,9 +178,6 @@ class UNETModule(pl.LightningModule):
 
         return targets, self.model(images)
         # TODO save files
-
-    def __get_default_model(self) -> UNET:
-        return UNET(min_layer_size=64, max_layer_size=1024, in_channels=1, num_classes=self.num_classes)
 
     def __eval_step(
         self, batch: tuple[Tensor, Tensor, Any], batch_idx, stage: Literal["val", "test"]

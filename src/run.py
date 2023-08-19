@@ -4,7 +4,7 @@ import sys
 import hydra
 import lightning as pl
 import pyrootutils
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 ROOT_DIR = pyrootutils.setup_root(
     search_from=__file__,

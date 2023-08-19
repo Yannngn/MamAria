@@ -7,8 +7,6 @@ import pyrootutils
 from lightning.pytorch.profilers import SimpleProfiler
 from omegaconf import DictConfig, OmegaConf
 
-import wandb
-
 ROOT_DIR = pyrootutils.setup_root(
     search_from=__file__,
     indicator=[".git", ".gitignore"],

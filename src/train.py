@@ -4,7 +4,6 @@ import sys
 import hydra
 import lightning as pl
 import pyrootutils
-import wandb
 from lightning.pytorch.tuner.tuning import Tuner
 from omegaconf import DictConfig, OmegaConf
 
