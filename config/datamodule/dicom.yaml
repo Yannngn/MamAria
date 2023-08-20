@@ -7,14 +7,7 @@ dataset:
   _partial_: true
   image_size: [2816, 3584]
 
-train_image_dir: ${train_image_dir}
-train_mask_dir: ${train_mask_dir}
-val_image_dir: ${val_image_dir}
-val_mask_dir: ${val_mask_dir}
-test_image_dir: ${test_image_dir}
-test_mask_dir: ${test_mask_dir}
-calib_image_dir: ${calib_image_dir}
-calib_mask_dir: ${calib_mask_dir}
+data_dir: ${paths.data_dir}
 
 val_size: 0.3
 

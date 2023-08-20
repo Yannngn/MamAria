@@ -3,7 +3,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
-from utils import metrics
+from . import metrics
 
 
 class ConfidenceHistogram(metrics.MaxProbCELoss):
@@ -14,7 +14,7 @@ class ConfidenceHistogram(metrics.MaxProbCELoss):
         n_bins: int = 15,
         logits: bool = True,
         title: Optional[str] = None,
-    ) -> plt.Axes:
+    ) -> None:
         super().loss(output, labels, n_bins, logits)
         # scale each datapoint
         n = len(labels)
@@ -27,8 +27,8 @@ class ConfidenceHistogram(metrics.MaxProbCELoss):
         plt.ylim(0, 1)
 
         ticks = np.arange(0, 1.2, 0.2).tolist()
-        plt.xticks(ticks, map(str, ticks))
-        plt.yticks(ticks, map(str, ticks))
+        plt.xticks(ticks, [str(t) for t in ticks])
+        plt.yticks(ticks, [str(t) for t in ticks])
 
         # plot grid
         plt.grid(color="tab:grey", linestyle=(0, (1, 5)), linewidth=1, zorder=0)
@@ -61,8 +61,6 @@ class ConfidenceHistogram(metrics.MaxProbCELoss):
         if title is not None:
             plt.title(title, fontsize=16)
 
-        return plt
-
 
 class ReliabilityDiagram(metrics.MaxProbCELoss):
     def plot(
@@ -72,7 +70,7 @@ class ReliabilityDiagram(metrics.MaxProbCELoss):
         n_bins: int = 15,
         logits: bool = True,
         title: Optional[str] = None,
-    ) -> plt.Axes:
+    ) -> None:
         super().loss(output, labels, n_bins, logits)
 
         # computations
@@ -123,5 +121,3 @@ class ReliabilityDiagram(metrics.MaxProbCELoss):
         if title is not None:
             plt.title(title, fontsize=16)
         plt.tight_layout()
-
-        return plt

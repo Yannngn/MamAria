@@ -1,4 +1,6 @@
-log_dir: ${root}/logs/${seed}/
 checkpoint_dir: ${root}/checkpoints/${seed}/
+data_dir: ${root}/train
+log_dir: ${root}/logs/${seed}/
 result_dir: ${root}/results/${seed}/
+
 logging_file: logging_file.log

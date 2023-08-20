@@ -16,6 +16,7 @@ def log(func):
             return result
         except Exception as exc:
             logger.exception(f"Exception raised in {func.__name__}. exception: {str(exc)}")
+            raise exc
 
     return wrapper
 
@@ -33,5 +34,6 @@ def log_list(func):
             return result
         except Exception as exc:
             logger.exception(f"Exception raised in {func.__name__}. exception: {str(exc)}")
+            raise exc
 
     return wrapper

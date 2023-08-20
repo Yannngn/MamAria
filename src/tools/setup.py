@@ -139,7 +139,7 @@ def setup(cfg: DictConfig) -> DictConfig:
     logging.info(f"Seed set to {cfg.seed}")
     pl.seed_everything(cfg.seed, workers=True)
 
-    logging.info(f"Torch set to medium matmul_precision")
-    torch.set_float32_matmul_precision("medium")
+    logging.info(f"Torch set to {cfg.precision} matmul_precision")
+    torch.set_float32_matmul_precision(cfg.precision)
 
     return cfg

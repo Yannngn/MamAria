@@ -3,8 +3,6 @@ defaults:
 _partial_: true
 _target_: src.module.unetmodule.UNETModule
 num_classes: ${num_classes}
-hidden_layer: 256
-transfer: true
 lr: 0.001
 save_dir: ${paths.result_dir}
 monitor: train_loss

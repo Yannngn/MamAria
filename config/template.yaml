@@ -40,12 +40,3 @@ tags: null
 root: null # /content/drive/Shareddrives/Aria/2023/modelo
 
 ckpt_path: null
-
-train_img_dir: "D:/MamAria/data/train/phantom/"
-train_mask_dir: "D:/MamAria/data/train/mask/"
-val_img_dir: "D:/MamAria/data/val/phantom/"
-val_mask_dir: "D:/MamAria/data/val/mask/"
-test_img_dir: "D:/MamAria/data/test/phantom/"
-test_mask_dir: "D:/MamAria/data/test/mask/"
-calib_image_dir: "D:/MamAria/data/val/phantom/"
-calib_mask_dir: "D:/MamAria/data/val/mask/"

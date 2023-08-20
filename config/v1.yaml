@@ -14,6 +14,7 @@ defaults:
 
 # general
 
+precision: medium
 num_classes: 4
 image_size: [360, 600]
 task: testing
@@ -46,12 +47,3 @@ tags: null
 root: /mnt/d/Github/MamAria/data
 
 ckpt_path: null
-
-train_image_dir: ${root}/train/phantom/
-train_mask_dir: ${root}/train/mask/
-val_image_dir: ${root}/val/phantom/
-val_mask_dir: ${root}/val/mask/
-test_image_dir: ${root}/test/phantom/
-test_mask_dir: ${root}/test/mask/
-calib_image_dir: ${root}/val/phantom/
-calib_mask_dir: ${root}/val/mask/

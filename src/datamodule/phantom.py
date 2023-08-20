@@ -1,9 +1,8 @@
-from typing import Any, Callable, Literal
+import os
+from typing import Callable, Literal
 
-import albumentations as A
 import lightning as pl
-import torch
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Dataset
 
 from transforms.albumentations import CustomTransforms
 
@@ -11,17 +10,10 @@ from transforms.albumentations import CustomTransforms
 class PhantomData(pl.LightningDataModule):
     def __init__(
         self,
+        data_dir: str,
         dataset: Callable[..., Dataset],
         transforms: CustomTransforms,
         num_classes: int,
-        train_image_dir: str,
-        train_mask_dir: str,
-        val_image_dir: str | None = None,
-        val_mask_dir: str | None = None,
-        test_image_dir: str | None = None,
-        test_mask_dir: str | None = None,
-        calib_image_dir: str | None = None,
-        calib_mask_dir: str | None = None,
         num_workers: int = 2,
         batch_size: int = 16,
         val_size: float = 0.3,
@@ -30,15 +22,8 @@ class PhantomData(pl.LightningDataModule):
 
         self.dataset = dataset
 
-        # dir paths
-        self.train_image_dir = train_image_dir
-        self.train_mask_dir = train_mask_dir
-        self.val_image_dir = val_image_dir
-        self.val_mask_dir = val_mask_dir
-        self.test_image_dir = test_image_dir
-        self.test_mask_dir = test_mask_dir
-        self.calib_image_dir = calib_image_dir
-        self.calib_mask_dir = calib_mask_dir
+        # dir path
+        self.data_dir = data_dir
 
         # transforms object
         self.transforms = transforms
@@ -53,35 +38,27 @@ class PhantomData(pl.LightningDataModule):
 
     def setup(
         self,
-        stage: Literal["fit", "test", "calibrate"] | None,
+        stage: Literal["fit", "test", "calib"] | None,
     ) -> None:
         if stage in ["fit", None]:
-            if self.val_image_dir is None:
-                self.train_dataset, self.val_dataset = self.get_train_val_dataset()
-                return
-
             self.train_dataset = self.dataset(
-                image_dir=self.train_image_dir,
-                mask_dir=self.train_mask_dir,
+                data_dir=os.path.join(self.data_dir, "train"),
                 transforms=self.transforms.get_transforms("train"),
             )
             self.val_dataset = self.dataset(
-                image_dir=self.val_image_dir,
-                mask_dir=self.val_mask_dir,
+                data_dir=os.path.join(self.data_dir, "val"),
                 transforms=self.transforms.get_transforms("test"),
             )
 
         if stage in ["test", None]:
             self.test_dataset = self.dataset(
-                image_dir=self.test_image_dir,
-                mask_dir=self.test_mask_dir,
+                data_dir=os.path.join(self.data_dir, "test"),
                 transforms=self.transforms.get_transforms("test"),
             )
 
-        if stage in ["calibrate", None]:
+        if stage in ["calib", None]:
             self.calib_dataset = self.dataset(
-                image_dir=self.calib_image_dir,
-                mask_dir=self.calib_mask_dir,
+                data_dir=os.path.join(self.data_dir, "calib"),
                 transforms=self.transforms.get_transforms("test"),
             )
 
@@ -116,20 +93,3 @@ class PhantomData(pl.LightningDataModule):
             num_workers=self.num_workers,
             batch_size=self.batch_size,
         )
-
-    def get_train_val_dataset(self) -> tuple[Dataset, Dataset]:
-        dataset = self.dataset(
-            image_dir=self.train_image_dir,
-            mask_dir=self.train_mask_dir,
-            transforms=self.transforms.get_transforms("train"),
-        )
-
-        indices = torch.randperm(len(dataset)).tolist()  # type: ignore
-        length = int(self.val_size * len(indices))
-
-        dataset_train = Subset(dataset, indices[length:])
-        dataset_val = Subset(dataset, indices[:length])
-
-        setattr(dataset_val, "transforms", self.transforms.get_transforms("test"))
-
-        return dataset_train, dataset_val

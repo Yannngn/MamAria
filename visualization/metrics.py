@@ -9,7 +9,7 @@ def check_accuracy(predictions, targets, global_metrics, label_metrics):
     return dict_eval
 
 
-def evaluate_segmentation(prob: torch.tensor, label: torch.tensor, global_metrics, label_metrics) -> dict:
+def evaluate_segmentation(prob: torch.Tensor, label: torch.Tensor, global_metrics, label_metrics) -> dict:
     num_classes = prob.size(dim=1)
     dict_eval = {}
 

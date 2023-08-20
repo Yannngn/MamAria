@@ -6,26 +6,24 @@ import numpy as np
 import pydicom
 from albumentations import Compose
 from PIL import Image
-from torch import Tensor
 from torch.utils.data import Dataset
 
 
 class PhantomDataset(Dataset):
     def __init__(
         self,
-        image_dir: str,
-        mask_dir: str,
+        data_dir: str,
         image_size: Any | None = None,
         transforms: Compose | None = None,
     ):
-        self.image_dir = image_dir
-        self.mask_dir = mask_dir
+        self.image_dir = os.path.join(data_dir, "phantom")
+        self.mask_dir = os.path.join(data_dir, "mask")
         self.transforms = transforms
 
         self.image_size = image_size
 
-        self.images = sorted(os.listdir(image_dir))
-        self.masks = sorted(os.listdir(mask_dir))
+        self.images = sorted(os.listdir(self.image_dir))
+        self.masks = sorted(os.listdir(self.mask_dir))
 
         self.image_names = [os.path.splitext(os.path.basename(image))[0] for image in self.images]
 
