@@ -29,8 +29,6 @@ label_map:
 multiplier: [1, 1, 1, 1]
 
 # system
-
-accelerator: gpu
 num_workers: 12
 batch_size: 4
 profiler:
@@ -44,6 +42,6 @@ tags: null
 
 # paths
 
-root: /mnt/d/Github/MamAria/data
+root: /mnt/e/yann_folder/MamAria
 
 ckpt_path: null

@@ -1,16 +1,17 @@
---extra-index-url https://download.pytorch.org/whl/nightly/cu121
-albumentations==1.3.1
-glob2==0.7
-hydra-core==1.3.2
-lightning==2.0.6
-opencv-python==4.8.0.74
-opencv-python-headless==4.8.0.74
-pandas==2.0.3
-pycocotools==2.0.6
-pyrootutils==1.0.4
-torch==2.1.0.dev20230805+cu121
-torchaudio==2.1.0.dev20230805+cu121
-torchmetrics==1.0.2
-torchvision==0.16.0.dev20230805+cu121
-tqdm==4.65.0
-wandb==0.15.8
+--extra-index-url https://download.pytorch.org/whl/cu118
+albumentations>=1.3.1
+glob2>=0.7
+hydra-core>=1.3.2
+lightning>=2.0.6
+opencv-python>=4.8.0.74
+opencv-python-headless>=4.8.0.74
+pandas>=2.0.3
+pycocotools>=2
+pydicom>=2.4.3
+pyrootutils>=1.0.4
+torch>=2.0.1+cu118
+torchaudio>=2.0.1+cu118
+torchmetrics>=1.0.2
+torchvision>=0.15.2+cu118
+tqdm>=4.65.0
+wandb>=0.15.8

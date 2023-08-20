@@ -38,13 +38,18 @@ class UNET(nn.Module):
         self.layers = layers
 
         self.double_conv_downs = nn.ModuleList(
-            [self.__double_conv(layer, layer_n) for layer, layer_n in zip(self.layers[:-1], self.layers[1:])]
+            [
+                self.__double_conv(layer, layer_n)
+                for layer, layer_n in zip(self.layers[:-1], self.layers[1:])
+            ]
         )
 
         self.up_trans = nn.ModuleList(
             [
                 nn.ConvTranspose2d(layer, layer_n, kernel_size=2, stride=2)
-                for layer, layer_n in zip(self.layers[::-1][:-2], self.layers[::-1][1:-1])
+                for layer, layer_n in zip(
+                    self.layers[::-1][:-2], self.layers[::-1][1:-1]
+                )
             ]
         )
 
@@ -79,7 +84,9 @@ class UNET(nn.Module):
         concat_layers = concat_layers[::-1]
 
         # up layers
-        for up_trans, double_conv_up, concat_layer in zip(self.up_trans, self.double_conv_ups, concat_layers):
+        for up_trans, double_conv_up, concat_layer in zip(
+            self.up_trans, self.double_conv_ups, concat_layers
+        ):
             x = up_trans(x)
             if x.shape != concat_layer.shape:
                 x = F.resize(x, concat_layer.shape[2:], antialias=True)
@@ -109,7 +116,7 @@ class UNETModule(pl.LightningModule):
 
         self.__optimizer = optimizer
         self.__lr_scheduler = lr_scheduler
-        self.loss_fn = loss_fn(weights)
+        self.loss_fn = loss_fn(weight=weights)
 
         self.lr = lr
         self.num_classes = num_classes
@@ -130,7 +137,12 @@ class UNETModule(pl.LightningModule):
         return self.model(x)
 
     def get_model(self):
-        return UNET(min_layer_size=64, max_layer_size=1024, in_channels=1, num_classes=self.num_classes)
+        return UNET(
+            min_layer_size=64,
+            max_layer_size=1024,
+            in_channels=1,
+            num_classes=self.num_classes,
+        )
 
     def configure_optimizers(self) -> Any:
         self.optimizer = self.__optimizer(params=self.model.parameters(), lr=self.lr)
@@ -145,7 +157,9 @@ class UNETModule(pl.LightningModule):
             },
         }
 
-    def training_step(self, batch: tuple[Tensor, Tensor, Any], batch_idx) -> dict[str, Any]:
+    def training_step(
+        self, batch: tuple[Tensor, Tensor, Any], batch_idx
+    ) -> dict[str, Any]:
         self.model.train()
         images, targets, _ = batch
         targets = targets.long()
@@ -165,7 +179,9 @@ class UNETModule(pl.LightningModule):
 
         return {"loss": loss}
 
-    def validation_step(self, batch: tuple[Tensor, Tensor, Any], batch_idx) -> dict[str, Any]:
+    def validation_step(
+        self, batch: tuple[Tensor, Tensor, Any], batch_idx
+    ) -> dict[str, Any]:
         return self.__eval_step(batch, batch_idx, stage="val")
 
     def test_step(self, batch: tuple[Tensor, Tensor, Any], batch_idx) -> dict[str, Any]:
@@ -180,7 +196,10 @@ class UNETModule(pl.LightningModule):
         # TODO save files
 
     def __eval_step(
-        self, batch: tuple[Tensor, Tensor, Any], batch_idx, stage: Literal["val", "test"]
+        self,
+        batch: tuple[Tensor, Tensor, Any],
+        batch_idx,
+        stage: Literal["val", "test"],
     ) -> dict[str, Any]:
         self.model.eval()
         metrics = self.val_metrics if stage == "val" else self.test_metrics
@@ -203,7 +222,14 @@ class UNETModule(pl.LightningModule):
 
         metrics.update(predictions, targets)
         log_dict = metrics.compute()
-        self.log_dict(log_dict, on_step=True, on_epoch=True, prog_bar=False, logger=True, batch_size=len(targets))
+        self.log_dict(
+            log_dict,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=False,
+            logger=True,
+            batch_size=len(targets),
+        )
         metrics.reset()
 
         # TODO sample the images
@@ -214,7 +240,7 @@ class UNETModule(pl.LightningModule):
 
             wandb_images = self.logger.prepare_batch(
                 image_names,
-                images.detach().cpu().numpy(),
+                images,
                 targets.detach().cpu().numpy(),
                 risk,
             )

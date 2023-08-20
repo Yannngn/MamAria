@@ -1,5 +1,5 @@
 checkpoint_dir: ${root}/checkpoints/${seed}/
-data_dir: ${root}/train
+data_dir: ${root}/data/
 log_dir: ${root}/logs/${seed}/
 result_dir: ${root}/results/${seed}/
 
